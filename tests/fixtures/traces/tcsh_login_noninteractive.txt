@@ -1,0 +1,4 @@
++ echo starting
+source /home/testuser/.cshrc
++1613341234.500000 /home/testuser/.login:1 do_something
++1613341234.700000 /home/testuser/.cshrc:5 echo done

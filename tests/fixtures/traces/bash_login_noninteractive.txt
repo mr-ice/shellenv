@@ -1,0 +1,4 @@
++1613341234.100000 /home/testuser/.bashrc:1 echo start
++1613341234.150000 /home/testuser/.bashrc:2 source /home/testuser/.bash_profile
++1613341234.300000 /home/testuser/.bash_profile:1 long_running_cmd
++1613341234.800000 /home/testuser/.bash_profile:2 echo done
