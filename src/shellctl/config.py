@@ -368,12 +368,7 @@ def global_config_path() -> Path:
     Environment override (for installs and tests):
     - ``SHELLCTL_GLOBAL_CONFIG_PATH`` — use another file instead of ``/etc``.
     """
-    return Path(
-        str(
-            os.environ.get("SHELLCTL_GLOBAL_CONFIG_PATH")
-            or GLOBAL_CONFIG_PATH
-        )
-    )
+    return Path(str(os.environ.get("SHELLCTL_GLOBAL_CONFIG_PATH") or GLOBAL_CONFIG_PATH))
 
 
 def _strip_none(data: dict) -> dict:

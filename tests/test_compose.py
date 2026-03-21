@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 import tomli_w
-
 from shellctl.compose import (
     ComposeFile,
     _extract_summary,
@@ -279,9 +278,7 @@ class TestComposeFixtureRepos:
         monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
         site = tmp_path / "site.toml"
         site.write_text(
-            tomli_w.dumps(
-                {"compose": {"paths": [str(COMPOSE_TEAM_A_ENV.resolve())]}}
-            ),
+            tomli_w.dumps({"compose": {"paths": [str(COMPOSE_TEAM_A_ENV.resolve())]}}),
             encoding="utf8",
         )
         monkeypatch.setenv("SHELLCTL_GLOBAL_CONFIG_PATH", str(site))

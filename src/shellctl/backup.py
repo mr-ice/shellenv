@@ -61,8 +61,7 @@ def get_backup_dir() -> Path:
         The backup directory (guaranteed to exist).
     """
     backup_dir = Path(
-        os.environ.get("SHELLCTL_BACKUP_DIR")
-        or Path.home() / ".cache" / "shellctl" / "backups"
+        os.environ.get("SHELLCTL_BACKUP_DIR") or Path.home() / ".cache" / "shellctl" / "backups"
     )
     backup_dir.mkdir(parents=True, exist_ok=True)
     return backup_dir
