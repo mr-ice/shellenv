@@ -1,4 +1,5 @@
 """Tests for compose file selection and installation."""
+
 from __future__ import annotations
 
 import subprocess
@@ -6,6 +7,7 @@ from pathlib import Path
 
 import pytest
 import tomli_w
+
 from shellctl.compose import (
     ComposeFile,
     _extract_summary,

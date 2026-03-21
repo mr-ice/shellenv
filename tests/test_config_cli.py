@@ -1,7 +1,9 @@
 """Tests for the CLI ``config`` subcommand (show/get/set/reset)."""
+
 import tomllib
 
 import pytest
+
 from shellctl.cli import main
 
 

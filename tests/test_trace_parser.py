@@ -2,6 +2,7 @@
 
 These tests ensure it can handle various trace formats and extract relevant information.
 """
+
 from shellctl.trace import parse_trace
 
 

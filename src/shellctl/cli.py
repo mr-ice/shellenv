@@ -1,4 +1,5 @@
 """Command-line interface for shellctl (scaffold)."""
+
 from __future__ import annotations
 
 import argparse
@@ -82,8 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="mode_filters",
         metavar="MODE",
         help=(
-            "Mode(s) to discover: li, ln, ni, nn, or full names. Repeat for multiple. "
-            "Default: all"
+            "Mode(s) to discover: li, ln, ni, nn, or full names. Repeat for multiple. Default: all"
         ),
     )
     disc.add_argument("--tui", action="store_true", help="Show discovery in the TUI")

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Re-create the shelltree directory with random files."""
+
 import random
 import shutil
 import string

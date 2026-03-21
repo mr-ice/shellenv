@@ -291,7 +291,7 @@ def display_discovery_tui(
                 if idx >= len(items):
                     break
                 name = items[idx]
-                line = f"{idx:3d} {name[:w-10]:{w-10}}"
+                line = f"{idx:3d} {name[: w - 10]:{w - 10}}"
                 try:
                     if idx == selected_idx:
                         stdscr.addstr(y, 2, line, curses.A_REVERSE)
@@ -1087,8 +1087,7 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
                     break
                 d = display_data[idx]
                 line = (
-                    f"{d['timestamp']}  ({d['file_count']} files)"
-                    f"  {d['family']}  {d['hostname']}"
+                    f"{d['timestamp']}  ({d['file_count']} files)  {d['family']}  {d['hostname']}"
                 )
                 line = line[: w - 4]
                 try:

@@ -4,6 +4,7 @@ Provides a single source of truth for mode names, short tags, and
 the mapping to shell invocation arguments. Used by both discover
 and trace commands.
 """
+
 from __future__ import annotations
 
 # Full mode names (login/nonlogin x interactive/noninteractive)

@@ -3,6 +3,7 @@
 import curses
 
 import pytest
+
 from shellctl.tui import (
     ChecklistState,
     _archive_list_for_display,

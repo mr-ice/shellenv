@@ -4,6 +4,7 @@ Provides robust detection of the current/login shell and the intended
 shell using a precedence order and normalization to known shell
 families.
 """
+
 from __future__ import annotations
 
 import os

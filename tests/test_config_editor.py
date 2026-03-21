@@ -1,7 +1,9 @@
 """Tests for the editor validation flow and validate_editor_config helper."""
+
 import tomllib
 
 import tomli_w
+
 from shellctl.tui import validate_editor_config
 
 

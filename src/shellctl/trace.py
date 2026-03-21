@@ -15,6 +15,7 @@ Notes
 - For `zsh` we run with `-o SOURCE_TRACE -x`, set `PS4=+%N:%i> ` in env,
   and capture stderr; parsing uses the default PS4 format.
 """
+
 from __future__ import annotations
 
 import os

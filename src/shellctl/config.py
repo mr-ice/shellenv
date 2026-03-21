@@ -22,6 +22,7 @@ config_show()
 validate_config(data)
     Validate a raw dict against the schema; returns a list of errors.
 """
+
 from __future__ import annotations
 
 import os

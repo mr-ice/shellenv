@@ -1,4 +1,5 @@
 """Tests for the discover modes functionality."""
+
 from shellctl.discover import discover_startup_files_modes
 
 

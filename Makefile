@@ -28,11 +28,11 @@ help:  ## Show this help
     /^[a-zA-Z][a-zA-Z0-9_.\/-]* *:.*##/ { printf "  \033[36m%-22s\033[0m %s\n", $$1,$$2 } \
     /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-style:  ## Format code with ruff
-	ruff format
+style:  ## Format code with ruff (same version as CI via uv dev group)
+	uv run ruff format .
 
 lint:  ## Check code with ruff
-	ruff check
+	uv run ruff check .
 
 test:  ## Run pytest
 	PYTHONPATH=src pytest -q

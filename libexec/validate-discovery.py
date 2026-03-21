@@ -25,6 +25,7 @@ results will not match current tracing.
 
 Requires shelltree/ (run libexec/refresh-shelltree.py first if needed).
 """
+
 from __future__ import annotations
 
 import os

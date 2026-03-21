@@ -1,4 +1,5 @@
 """Tests for the trace mocking functionality."""
+
 import os
 
 from shellctl.trace import analyze_traces, parse_trace, run_shell_trace

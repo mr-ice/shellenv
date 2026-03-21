@@ -1,4 +1,5 @@
 """Tests for the shared modes module."""
+
 from shellctl.modes import (
     INVOCATION_MODES,
     mode_to_args,

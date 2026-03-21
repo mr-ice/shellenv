@@ -10,6 +10,7 @@ This module provides a safe discovery strategy:
 The tracer approach is best-effort; use with care. For now discovery
 exposes a simple API suitable for unit testing and CLI display.
 """
+
 from __future__ import annotations
 
 import json

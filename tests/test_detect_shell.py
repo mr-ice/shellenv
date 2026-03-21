@@ -1,4 +1,5 @@
 """Tests for the detect shell functionality."""
+
 import pwd
 import shutil
 import subprocess

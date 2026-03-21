@@ -1,6 +1,8 @@
 """Tests for config get/set/reset/show operations and nested-dict helpers."""
+
 import pytest
 import tomli_w
+
 from shellctl.config import (
     _MISSING,
     CONFIG_SCHEMA,
