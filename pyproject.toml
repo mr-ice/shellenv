@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shellctl"
+name = "shellenv"
 version = "0.1.0"
 description = "Tool to manage shell environment startup files"
 authors = [ { name = "Michael Rice", email = "michael@riceclan.org" } ]
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-shellctl = "shellctl.cli:_entry"
+shellenv = "shellenv.cli:_entry"
 
 [tool.ruff]
 line-length = 100

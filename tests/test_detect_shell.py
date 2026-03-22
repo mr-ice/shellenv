@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from types import SimpleNamespace
 
-from shellctl.detect_shell import detect_current_and_intended_shell
+from shellenv.detect_shell import detect_current_and_intended_shell
 
 
 def test_detect_prefers_cli_arg(monkeypatch):

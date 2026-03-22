@@ -4,7 +4,7 @@ These tests verify `discover_startup_files_modes` honors the
 `existing_only` and `full_paths` flags when locating startup files.
 """
 
-from shellctl.discover import discover_startup_files_modes
+from shellenv.discover import discover_startup_files_modes
 
 
 def test_existing_only_and_full_paths(tmp_path, monkeypatch):

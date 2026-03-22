@@ -3,7 +3,7 @@
 import pytest
 import tomli_w
 
-from shellctl.config import (
+from shellenv.config import (
     _MISSING,
     CONFIG_SCHEMA,
     config_get,
@@ -79,10 +79,10 @@ class TestDeleteNested:
 @pytest.fixture()
 def _isolate_config(tmp_path, monkeypatch):
     """Point config paths to tmp_path so tests don't touch real files."""
-    user_cfg = tmp_path / ".shellctl.toml"
+    user_cfg = tmp_path / ".shellenv.toml"
     global_cfg = tmp_path / "global.toml"
-    monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
-    monkeypatch.setattr("shellctl.config.GLOBAL_CONFIG_PATH", global_cfg)
+    monkeypatch.setattr("shellenv.config.user_config_path", lambda: user_cfg)
+    monkeypatch.setattr("shellenv.config.GLOBAL_CONFIG_PATH", global_cfg)
     return user_cfg, global_cfg
 
 
@@ -208,11 +208,11 @@ class TestGlobalTemplate:
         assert "[compose]" in text
 
     def test_write_template_file(self, _isolate_config, tmp_path):
-        p = tmp_path / "shellctl.toml"
+        p = tmp_path / "shellenv.toml"
         write_default_config_template(p)
         assert p.exists()
 
     def test_global_path_env_override(self, _isolate_config, monkeypatch, tmp_path):
         p = tmp_path / "site.toml"
-        monkeypatch.setenv("SHELLCTL_GLOBAL_CONFIG_PATH", str(p))
+        monkeypatch.setenv("SHELLENV_GLOBAL_CONFIG_PATH", str(p))
         assert global_config_path() == p

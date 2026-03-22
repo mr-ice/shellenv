@@ -39,8 +39,8 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
-ARCHIVE_GLOB = "shellctl-backup-*.tar.gz"
-ARCHIVE_RE = re.compile(r"shellctl-backup-(\d{8}T\d{6}Z)\.tar\.gz")
+ARCHIVE_GLOB = "shellenv-backup-*.tar.gz"
+ARCHIVE_RE = re.compile(r"shellenv-backup-(\d{8}T\d{6}Z)\.tar\.gz")
 _VERSION = "0.1.0"
 
 
@@ -52,8 +52,8 @@ _VERSION = "0.1.0"
 def get_backup_dir() -> Path:
     """Return the backup directory, creating it if needed.
 
-    Uses the ``SHELLCTL_BACKUP_DIR`` environment variable when set,
-    otherwise defaults to ``~/.cache/shellctl/backups``.
+    Uses the ``SHELLENV_BACKUP_DIR`` environment variable when set,
+    otherwise defaults to ``~/.cache/shellenv/backups``.
 
     Returns
     -------
@@ -61,7 +61,7 @@ def get_backup_dir() -> Path:
         The backup directory (guaranteed to exist).
     """
     backup_dir = Path(
-        os.environ.get("SHELLCTL_BACKUP_DIR") or Path.home() / ".cache" / "shellctl" / "backups"
+        os.environ.get("SHELLENV_BACKUP_DIR") or Path.home() / ".cache" / "shellenv" / "backups"
     )
     backup_dir.mkdir(parents=True, exist_ok=True)
     return backup_dir
@@ -128,7 +128,7 @@ class BackupManifest:
     hostname : str
         Machine hostname at time of backup.
     version : str
-        shellctl version string.
+        shellenv version string.
     """
 
     timestamp: str
@@ -162,7 +162,7 @@ def _manifest_from_bytes(data: bytes) -> BackupManifest:
 
 def _archive_filename(timestamp: str) -> str:
     """Return the archive filename for a given timestamp string."""
-    return f"shellctl-backup-{timestamp}.tar.gz"
+    return f"shellenv-backup-{timestamp}.tar.gz"
 
 
 def _make_timestamp() -> str:

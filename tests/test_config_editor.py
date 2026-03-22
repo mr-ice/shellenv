@@ -4,7 +4,7 @@ import tomllib
 
 import tomli_w
 
-from shellctl.tui import validate_editor_config
+from shellenv.tui import validate_editor_config
 
 
 class TestValidateEditorConfig:
@@ -77,12 +77,12 @@ class TestEditorRestore:
 
     def test_invalid_edit_is_reverted(self, tmp_path, monkeypatch):
         """After 'editing' produces invalid TOML, the original is restored."""
-        from shellctl.config import save_config
+        from shellenv.config import save_config
 
-        user_cfg = tmp_path / ".shellctl.toml"
+        user_cfg = tmp_path / ".shellenv.toml"
         global_cfg = tmp_path / "global.toml"
-        monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
-        monkeypatch.setattr("shellctl.config.GLOBAL_CONFIG_PATH", global_cfg)
+        monkeypatch.setattr("shellenv.config.user_config_path", lambda: user_cfg)
+        monkeypatch.setattr("shellenv.config.GLOBAL_CONFIG_PATH", global_cfg)
 
         # write a valid initial config
         save_config(user_cfg, {"trace": {"threshold_percent": 42.0}})
@@ -107,12 +107,12 @@ class TestEditorRestore:
 
     def test_valid_edit_is_kept(self, tmp_path, monkeypatch):
         """After 'editing' produces valid TOML, the new content is kept."""
-        from shellctl.config import save_config
+        from shellenv.config import save_config
 
-        user_cfg = tmp_path / ".shellctl.toml"
+        user_cfg = tmp_path / ".shellenv.toml"
         global_cfg = tmp_path / "global.toml"
-        monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
-        monkeypatch.setattr("shellctl.config.GLOBAL_CONFIG_PATH", global_cfg)
+        monkeypatch.setattr("shellenv.config.user_config_path", lambda: user_cfg)
+        monkeypatch.setattr("shellenv.config.GLOBAL_CONFIG_PATH", global_cfg)
 
         save_config(user_cfg, {"trace": {"threshold_percent": 10.0}})
         original = user_cfg.read_text()

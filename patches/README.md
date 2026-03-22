@@ -1,4 +1,4 @@
-# Patches for shellctl
+# Patches for shellenv
 
 ## tcsh TCSH_XTRACEFD
 
@@ -16,10 +16,10 @@ Shell tracing for tcsh requires a patched tcsh that supports `TCSH_XTRACEFD` (an
 
 ### Build patched tcsh
 
-From the shellctl repo (clones into `tcsh-src/tcsh-git/`, patches, builds, copies binary to `tcsh-src/tcsh`):
+From the shellenv repo (clones into `tcsh-src/tcsh-git/`, patches, builds, copies binary to `tcsh-src/tcsh`):
 
 ```bash
-cd /path/to/shellctl
+cd /path/to/shellenv
 make tcsh-src/tcsh
 ```
 
@@ -28,17 +28,17 @@ Manual build:
 ```bash
 git clone https://github.com/tcsh-org/tcsh.git tcsh-src
 cd tcsh-src
-patch -p1 < /path/to/shellctl/patches/tcsh-TCSH_XTRACEFD.patch
-patch -p1 < /path/to/shellctl/patches/tcsh-closem-preserve-xtracefd.patch
-patch -p1 < /path/to/shellctl/patches/tcsh-xtrace-filepath.patch
-patch -p1 < /path/to/shellctl/patches/tcsh-allow-l-with-args.patch
-patch -p1 < /path/to/shellctl/patches/tcsh-sourcetrace.patch
+patch -p1 < /path/to/shellenv/patches/tcsh-TCSH_XTRACEFD.patch
+patch -p1 < /path/to/shellenv/patches/tcsh-closem-preserve-xtracefd.patch
+patch -p1 < /path/to/shellenv/patches/tcsh-xtrace-filepath.patch
+patch -p1 < /path/to/shellenv/patches/tcsh-allow-l-with-args.patch
+patch -p1 < /path/to/shellenv/patches/tcsh-sourcetrace.patch
 ./configure && make
 ```
 
-The resulting `tcsh` binary is built in the source directory. Point shellctl at it via:
+The resulting `tcsh` binary is built in the source directory. Point shellenv at it via:
 
-- `SHELLCTL_TCSH_PATH=/path/to/tcsh-src/tcsh`
+- `SHELLENV_TCSH_PATH=/path/to/tcsh-src/tcsh`
 - Or pass `--shell-path` when running discover/trace for tcsh
 
 ## bash source trace (zsh SOURCE_TRACE analog)
@@ -46,7 +46,7 @@ The resulting `tcsh` binary is built in the source directory. Point shellctl at 
 Discovery needs to know **each file** bash reads (`source`, `.`, and startup files).
 Stock bash only shows that indirectly via xtrace. This patch always emits one
 line per file read through `_evalfile()`, in the same stream as xtrace (stderr
-or `BASH_XTRACEFD`), shaped like shellctl’s parser expects:
+or `BASH_XTRACEFD`), shaped like shellenv’s parser expects:
 
 `+0.000000 /absolute/path/to/file:1 <sourcetrace>`
 
@@ -57,10 +57,10 @@ There is no runtime toggle; use this binary only for tracing/discovery if you pr
 
 ### Build patched bash
 
-From the shellctl repo (downloads `bash-$(BASH_VERSION).tar.gz`, unpacks under `bash-src/`, patches, builds, copies the binary to `bash-src/bash`):
+From the shellenv repo (downloads `bash-$(BASH_VERSION).tar.gz`, unpacks under `bash-src/`, patches, builds, copies the binary to `bash-src/bash`):
 
 ```bash
-cd /path/to/shellctl
+cd /path/to/shellenv
 make bash-src/bash
 ```
 
@@ -69,14 +69,14 @@ Manual build:
 ```bash
 wget https://ftp.gnu.org/gnu/bash/bash-5.2.tar.gz
 tar xzf bash-5.2.tar.gz && cd bash-5.2
-patch -p1 < /path/to/shellctl/patches/bash-sourcetrace.patch
+patch -p1 < /path/to/shellenv/patches/bash-sourcetrace.patch
 ./configure && make
 ```
 
-The `bash` binary is produced in the build tree (often `./bash`). Point shellctl at it via:
+The `bash` binary is produced in the build tree (often `./bash`). Point shellenv at it via:
 
-- `SHELLCTL_BASH_PATH=/path/to/bash-5.2/bash`
-- Or install/copy the binary to `bash-src/bash` at the shellctl project root
+- `SHELLENV_BASH_PATH=/path/to/bash-5.2/bash`
+- Or install/copy the binary to `bash-src/bash` at the shellenv project root
 - Or pass `--shell-path` for trace commands
 
 Optional: you can also apply `bash-xtrace-fileline.patch` if you want the default
@@ -88,7 +88,7 @@ PS4 to include file:line when `PS4` is not set from the environment.
 
 ```bash
 cd bash-5.2
-patch -p1 < /path/to/shellctl/patches/bash-xtrace-fileline.patch
+patch -p1 < /path/to/shellenv/patches/bash-xtrace-fileline.patch
 ./configure && make
 ```
 

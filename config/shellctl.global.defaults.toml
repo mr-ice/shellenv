@@ -1,5 +1,5 @@
-# shellctl global defaults template
-# Copy to /etc/shellctl.toml (or SHELLCTL_GLOBAL_CONFIG_PATH) and edit.
+# shellenv global defaults template
+# Copy to /etc/shellenv.toml (or SHELLENV_GLOBAL_CONFIG_PATH) and edit.
 
 [compose]
 # Allow compose paths that are not git repos on main:HEAD

@@ -1,6 +1,6 @@
-# shellctl
+# shellenv
 
-shellctl is a tool for operators to control shell environment startup files (bash, zsh, tcsh): discover what runs, trace cost, back up and restore, optionally pull init files from a repo, and **compose** extra snippets from configured directories.
+shellenv is a tool for operators to control shell environment startup files (bash, zsh, tcsh): discover what runs, trace cost, back up and restore, optionally pull init files from a repo, and **compose** extra snippets from configured directories.
 
 This document is the product spec. For day-to-day CLI usage and developer commands, see `README.md`.
 
@@ -8,20 +8,20 @@ This document is the product spec. For day-to-day CLI usage and developer comman
 
 | Layer | Path | Notes |
 | --- | --- | --- |
-| Site / global | `/etc/shellctl.toml` | Optional. |
-| User | `~/.shellctl.toml` | Overrides global; list keys such as `compose.paths` append to global when merged. |
+| Site / global | `/etc/shellenv.toml` | Optional. |
+| User | `~/.shellenv.toml` | Overrides global; list keys such as `compose.paths` append to global when merged. |
 
-- **Site template**: `config/shellctl.global.defaults.toml` in the repo is a full commented template (regenerate with `shellctl config init-global --path …`).
-- **Override global path (installs, CI, pytest)**: set **`SHELLCTL_GLOBAL_CONFIG_PATH`** to another file instead of `/etc/shellctl.toml`.
+- **Site template**: `config/shellenv.global.defaults.toml` in the repo is a full commented template (regenerate with `shellenv config init-global --path …`).
+- **Override global path (installs, CI, pytest)**: set **`SHELLENV_GLOBAL_CONFIG_PATH`** to another file instead of `/etc/shellenv.toml`.
 
-Relevant schema keys include `trace.*`, `repo.*`, and `compose.*` (`paths`, `shell_rc_files`, `allow_non_repo`). See `src/shellctl/config.py` (`CONFIG_SCHEMA`).
+Relevant schema keys include `trace.*`, `repo.*`, and `compose.*` (`paths`, `shell_rc_files`, `allow_non_repo`). See `src/shellenv/config.py` (`CONFIG_SCHEMA`).
 
 ## Compose (feature summary)
 
 Optional init fragments live in directories listed in `compose.paths`. Files must match `{rc_base}-{tag}` (e.g. `zshrc-fzf`); the first comment line is treated as a one-line description. Selected files are installed into the home directory (e.g. `~/.zshrc-fzf`) and tracked in a registry under the cache dir.
 
 - **Git policy (current implementation)**: by default each path must be a git worktree on `main` or `master` with a **clean** working tree. Set **`compose.allow_non_repo`** to allow directories that are not valid repos on `main:HEAD` (still skipped with a warning when strict).
-- **Testing / local override**: **`SHELLCTL_COMPOSE_ALLOW_DIRTY`** (`1`, `true`, `yes`, `on`) allows a dirty working tree while still requiring `main`/`master`.
+- **Testing / local override**: **`SHELLENV_COMPOSE_ALLOW_DIRTY`** (`1`, `true`, `yes`, `on`) allows a dirty working tree while still requiring `main`/`master`.
 - **Fixture repos**: sample trees under `repos/compose/teamA/env` and `repos/compose/teamB/env` are used in tests for multi-shell compose layouts.
 
 Roadmap items from the original spec (not necessarily implemented yet): remote URL checks (`*.sarc.samsung.com`), symlink vs copy policy, and warnings when the parent rc file lacks a loop to source `~/.{rc}-{tag}` files.
@@ -69,8 +69,8 @@ Roadmap items from the original spec (not necessarily implemented yet): remote U
 ## Testing and quality
 
 - Each feature should have tests before it is wired into operator scripts and the TUI.
-- **Pytest / hermetic config**: point **`SHELLCTL_GLOBAL_CONFIG_PATH`** at a temp site TOML; patch or redirect **`user_config_path`** in tests that must not read the developer’s real `~/.shellctl.toml`.
-- **Compose**: use **`compose.allow_non_repo`** or `allow_non_repo=True` in API tests for paths that are not git repos; use **`SHELLCTL_COMPOSE_ALLOW_DIRTY`** when a real repo on `main` is intentionally dirty; use **`repos/compose/teamA`** / **`teamB`** for integration-style listing tests.
+- **Pytest / hermetic config**: point **`SHELLENV_GLOBAL_CONFIG_PATH`** at a temp site TOML; patch or redirect **`user_config_path`** in tests that must not read the developer’s real `~/.shellenv.toml`.
+- **Compose**: use **`compose.allow_non_repo`** or `allow_non_repo=True` in API tests for paths that are not git repos; use **`SHELLENV_COMPOSE_ALLOW_DIRTY`** when a real repo on `main` is intentionally dirty; use **`repos/compose/teamA`** / **`teamB`** for integration-style listing tests.
 
 ## Issue tracker
 

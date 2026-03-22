@@ -15,7 +15,7 @@
  }
  
 +/* Announce each sourced file (zsh SOURCE_TRACE analog).  Always emitted when
-+   a file is read via _evalfile(); lines match shellctl parse_bash_trace. */
++   a file is read via _evalfile(); lines match shellenv parse_bash_trace. */
  void
 +xtrace_source_trace (filename)
 +     const char *filename;

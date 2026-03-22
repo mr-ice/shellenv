@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import tomli_w
 
-from shellctl.compose import (
+from shellenv.compose import (
     INVALID_COMPOSE_SUMMARY,
     ComposeFile,
     _extract_summary,
@@ -252,7 +252,7 @@ class TestListComposeFiles:
         assert files == []
 
     def test_dirty_repo_allowed_with_allow_dirty_env(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("SHELLCTL_COMPOSE_ALLOW_DIRTY", "1")
+        monkeypatch.setenv("SHELLENV_COMPOSE_ALLOW_DIRTY", "1")
         repo = tmp_path / "r"
         repo.mkdir()
         subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
@@ -292,7 +292,7 @@ class TestComposeFixtureRepos:
     @pytest.fixture(autouse=True)
     def _fixture_repos_allow_dirty_git(self, monkeypatch):
         """Sample repos are often dirty in dev trees; still require main/master."""
-        monkeypatch.setenv("SHELLCTL_COMPOSE_ALLOW_DIRTY", "1")
+        monkeypatch.setenv("SHELLENV_COMPOSE_ALLOW_DIRTY", "1")
 
     def test_team_a_tcsh_files_clean_main(self):
         if not COMPOSE_TEAM_A_ENV.is_dir():
@@ -336,15 +336,15 @@ class TestComposeFixtureRepos:
     def test_global_config_paths_via_env_site_toml(self, monkeypatch, tmp_path):
         if not COMPOSE_TEAM_A_ENV.is_dir():
             pytest.skip("repos/compose/teamA/env not present")
-        user_cfg = tmp_path / ".shellctl.toml"
+        user_cfg = tmp_path / ".shellenv.toml"
         user_cfg.write_text("", encoding="utf8")
-        monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
+        monkeypatch.setattr("shellenv.config.user_config_path", lambda: user_cfg)
         site = tmp_path / "site.toml"
         site.write_text(
             tomli_w.dumps({"compose": {"paths": [str(COMPOSE_TEAM_A_ENV.resolve())]}}),
             encoding="utf8",
         )
-        monkeypatch.setenv("SHELLCTL_GLOBAL_CONFIG_PATH", str(site))
+        monkeypatch.setenv("SHELLENV_GLOBAL_CONFIG_PATH", str(site))
         files = list_compose_files(
             "tcsh",
             shell_rc_files=["tcshrc"],
@@ -381,7 +381,7 @@ class TestInstallComposeFiles:
         assert str(dest) in installed
 
     def test_updates_registry(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("SHELLCTL_CACHE_DIR", str(tmp_path / "cache"))
+        monkeypatch.setenv("SHELLENV_CACHE_DIR", str(tmp_path / "cache"))
         src = tmp_path / "compose"
         src.mkdir()
         (src / "zshrc-fzf").write_text("# FZF")
@@ -408,11 +408,11 @@ class TestRegistry:
     """Tests for the compose registry."""
 
     def test_empty_registry(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("SHELLCTL_CACHE_DIR", str(tmp_path))
+        monkeypatch.setenv("SHELLENV_CACHE_DIR", str(tmp_path))
         assert get_registry() == []
 
     def test_registry_path_respects_env(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("SHELLCTL_CACHE_DIR", str(tmp_path))
+        monkeypatch.setenv("SHELLENV_CACHE_DIR", str(tmp_path))
         p = _registry_path()
         assert str(tmp_path) in str(p)
         assert p.name == "compose_registry.json"

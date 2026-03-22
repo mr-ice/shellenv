@@ -9,18 +9,18 @@ defaults). There are no CLI flags; run from the repo root.
 
 Usage (recommended — uses project venv and current sources):
 
-  cd /path/to/shellctl
+  cd /path/to/shellenv
   uv run python libexec/validate-discovery.py
 
-Plain python3 (must see in-tree ``src/shellctl``):
+Plain python3 (must see in-tree ``src/shellenv``):
 
-  cd /path/to/shellctl
+  cd /path/to/shellenv
   PYTHONPATH=src python3 libexec/validate-discovery.py
   or
-  PYTHONPATH=src python3 -m shellctl.libexec.validate-discovery
+  PYTHONPATH=src python3 -m shellenv.libexec.validate-discovery
 
 If you only run ``python3`` without ``uv`` and without ``PYTHONPATH=src``,
-Python may import an older globally installed ``shellctl`` and zsh
+Python may import an older globally installed ``shellenv`` and zsh
 results will not match current tracing.
 
 Requires shelltree/ (run libexec/refresh-shelltree.py first if needed).
@@ -41,8 +41,8 @@ _src = PROJECT_ROOT / "src"
 if _src.is_dir():
     sys.path.insert(0, str(_src))
 
-from shellctl.discover import discover_startup_files_modes  # noqa: E402
-from shellctl.modes import INVOCATION_MODES  # noqa: E402
+from shellenv.discover import discover_startup_files_modes  # noqa: E402
+from shellenv.modes import INVOCATION_MODES  # noqa: E402
 
 
 def main() -> int:

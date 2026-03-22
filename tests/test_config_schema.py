@@ -2,7 +2,7 @@
 
 import pytest
 
-from shellctl.config import coerce_value, validate_config, validate_value
+from shellenv.config import coerce_value, validate_config, validate_value
 
 # -- coerce_value -----------------------------------------------------------
 

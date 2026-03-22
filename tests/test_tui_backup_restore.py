@@ -4,7 +4,7 @@ import curses
 
 import pytest
 
-from shellctl.tui import (
+from shellenv.tui import (
     ChecklistState,
     _archive_list_for_display,
     _build_backup_items,
@@ -199,7 +199,7 @@ class TestArchiveListForDisplay:
         (home / ".bashrc").write_text("export PATH=/usr/bin")
         monkeypatch.setattr("pathlib.Path.home", lambda: home)
 
-        from shellctl.backup import create_backup, list_archives
+        from shellenv.backup import create_backup, list_archives
 
         create_backup([str(home / ".bashrc")], "bash", backup_dir=tmp_path)
         archives = list_archives(backup_dir=tmp_path)
@@ -226,7 +226,7 @@ def _cli_backup_env(tmp_path, monkeypatch):
     (home / ".bash_profile").write_text("# profile")
     (home / ".zshrc").write_text("# zshrc")
     monkeypatch.setattr("pathlib.Path.home", lambda: home)
-    monkeypatch.setenv("SHELLCTL_BACKUP_DIR", str(tmp_path / "backups"))
+    monkeypatch.setenv("SHELLENV_BACKUP_DIR", str(tmp_path / "backups"))
 
     bash_files = [str(home / ".bashrc"), str(home / ".bash_profile")]
     zsh_files = [str(home / ".zshrc")]
@@ -238,7 +238,7 @@ def _cli_backup_env(tmp_path, monkeypatch):
             return list(zsh_files)
         return []
 
-    monkeypatch.setattr("shellctl.cli._discover_files", _fake_discover)
+    monkeypatch.setattr("shellenv.cli._discover_files", _fake_discover)
     return home, bash_files, zsh_files
 
 
@@ -246,7 +246,7 @@ class TestCLIBackupTUI:
     """Verify --tui flag dispatches to display_backup_tui with all families."""
 
     def test_backup_tui_receives_all_families(self, _cli_backup_env, monkeypatch):
-        from shellctl.cli import main
+        from shellenv.cli import main
 
         home, bash_files, zsh_files = _cli_backup_env
         called = {}
@@ -257,7 +257,7 @@ class TestCLIBackupTUI:
             called["archive_mode"] = archive_mode
             return None
 
-        monkeypatch.setattr("shellctl.tui.display_backup_tui", fake_tui)
+        monkeypatch.setattr("shellenv.tui.display_backup_tui", fake_tui)
         rc = main(["backup", "--family", "bash", "--tui"])
         assert rc == 0
         assert called["active_family"] == "bash"
@@ -275,8 +275,8 @@ class TestCLIBackupTUI:
             called["active_family"] = active_family
             return None
 
-        monkeypatch.setattr("shellctl.tui.display_backup_tui", fake_tui)
-        from shellctl.cli import main
+        monkeypatch.setattr("shellenv.tui.display_backup_tui", fake_tui)
+        from shellenv.cli import main
 
         rc = main(["archive", "--family", "bash", "--tui"])
         assert rc == 0
@@ -293,8 +293,8 @@ class TestCLIRestoreTUI:
             called["invoked"] = True
             return []
 
-        monkeypatch.setattr("shellctl.tui.display_restore_tui", fake_tui)
-        from shellctl.cli import main
+        monkeypatch.setattr("shellenv.tui.display_restore_tui", fake_tui)
+        from shellenv.cli import main
 
         rc = main(["restore", "--tui"])
         assert rc == 0
@@ -304,8 +304,8 @@ class TestCLIRestoreTUI:
         def fake_tui(backup_dir=None):
             return ["/home/.bashrc", "/home/.profile"]
 
-        monkeypatch.setattr("shellctl.tui.display_restore_tui", fake_tui)
-        from shellctl.cli import main
+        monkeypatch.setattr("shellenv.tui.display_restore_tui", fake_tui)
+        from shellenv.cli import main
 
         rc = main(["restore", "--tui"])
         assert rc == 0

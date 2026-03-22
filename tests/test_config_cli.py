@@ -4,16 +4,16 @@ import tomllib
 
 import pytest
 
-from shellctl.cli import main
+from shellenv.cli import main
 
 
 @pytest.fixture()
 def _isolate(tmp_path, monkeypatch):
     """Redirect config paths to tmp_path so tests are hermetic."""
-    user_cfg = tmp_path / ".shellctl.toml"
+    user_cfg = tmp_path / ".shellenv.toml"
     global_cfg = tmp_path / "global.toml"
-    monkeypatch.setattr("shellctl.config.user_config_path", lambda: user_cfg)
-    monkeypatch.setattr("shellctl.config.GLOBAL_CONFIG_PATH", global_cfg)
+    monkeypatch.setattr("shellenv.config.user_config_path", lambda: user_cfg)
+    monkeypatch.setattr("shellenv.config.GLOBAL_CONFIG_PATH", global_cfg)
     return user_cfg, global_cfg
 
 
@@ -21,7 +21,7 @@ def _isolate(tmp_path, monkeypatch):
 
 
 class TestConfigShow:
-    """Tests for ``shellctl config show``."""
+    """Tests for ``shellenv config show``."""
 
     def test_show_prints_all_keys(self, _isolate, capsys):
         rc = main(["config", "show"])
@@ -48,7 +48,7 @@ class TestConfigShow:
 
 
 class TestConfigGet:
-    """Tests for ``shellctl config get``."""
+    """Tests for ``shellenv config get``."""
 
     def test_get_known_key(self, _isolate, capsys):
         rc = main(["config", "get", "trace.threshold_percent"])
@@ -71,7 +71,7 @@ class TestConfigGet:
 
 
 class TestConfigSet:
-    """Tests for ``shellctl config set``."""
+    """Tests for ``shellenv config set``."""
 
     def test_set_valid_float(self, _isolate, capsys):
         rc = main(["config", "set", "trace.threshold_percent", "30"])
@@ -139,7 +139,7 @@ class TestConfigSet:
 
 
 class TestConfigReset:
-    """Tests for ``shellctl config reset``."""
+    """Tests for ``shellenv config reset``."""
 
     def test_reset_reverts_to_default(self, _isolate, capsys):
         main(["config", "set", "trace.threshold_percent", "99"])
@@ -159,7 +159,7 @@ class TestConfigReset:
 
 
 class TestConfigNoSubcmd:
-    """Tests for ``shellctl config`` with no sub-subcommand."""
+    """Tests for ``shellenv config`` with no sub-subcommand."""
 
     def test_prints_usage(self, _isolate, capsys):
         rc = main(["config"])
@@ -168,7 +168,7 @@ class TestConfigNoSubcmd:
 
 
 class TestConfigInitGlobal:
-    """Tests for ``shellctl config init-global``."""
+    """Tests for ``shellenv config init-global``."""
 
     def test_writes_template(self, _isolate, tmp_path, capsys):
         out_path = tmp_path / "site.toml"
@@ -190,7 +190,7 @@ class TestConfigInitGlobal:
 
 
 class TestConfigKeys:
-    """Tests for ``shellctl config keys``."""
+    """Tests for ``shellenv config keys``."""
 
     def test_keys_prints_metadata_table(self, _isolate, capsys):
         rc = main(["config", "keys"])

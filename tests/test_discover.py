@@ -1,6 +1,6 @@
 """Tests for the discover functionality."""
 
-from shellctl.discover import discover_startup_files
+from shellenv.discover import discover_startup_files
 
 
 def test_discover_returns_candidates_for_bash(tmp_path, monkeypatch):

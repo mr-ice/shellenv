@@ -1,4 +1,4 @@
-"""Command-line interface for shellctl (scaffold)."""
+"""Command-line interface for shellenv (scaffold)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 
 
 def _configure_logging(level: str) -> None:
-    """Configure logging for the shellctl package."""
+    """Configure logging for the shellenv package."""
     numeric = getattr(logging, level.upper(), logging.WARNING)
     logging.basicConfig(
         level=numeric,
@@ -27,7 +27,7 @@ def _configure_logging(level: str) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the CLI."""
-    p = argparse.ArgumentParser(prog="shellctl")
+    p = argparse.ArgumentParser(prog="shellenv")
     p.add_argument(
         "--log-level",
         choices=LOG_LEVELS,
@@ -52,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     disc.add_argument(
         "--use-shell-trace",
         action="store_true",
-        help="Force shell-level tracing (honors SHELLCTL_MOCK_TRACE_DIR)",
+        help="Force shell-level tracing (honors SHELLENV_MOCK_TRACE_DIR)",
     )
     disc.add_argument(
         "--refresh-cache",
@@ -382,7 +382,7 @@ def _handle_config(args: argparse.Namespace) -> int:
         print(f"wrote global config template: {target}")
         return 0
 
-    print("usage: shellctl config {show,get,set,reset,keys,init-global} ...", file=sys.stderr)
+    print("usage: shellenv config {show,get,set,reset,keys,init-global} ...", file=sys.stderr)
     return 1
 
 
@@ -585,7 +585,7 @@ def _handle_compose(args: argparse.Namespace) -> int:
     if compose_cmd == "pick":
         return _handle_compose_pick(args, family)
 
-    print("usage: shellctl compose {list,pick} ...", file=sys.stderr)
+    print("usage: shellenv compose {list,pick} ...", file=sys.stderr)
     return 1
 
 
@@ -606,7 +606,7 @@ def _handle_compose_list(family: str) -> int:
     }
     pick_hint = pick_examples.get(family.lower(), ".<shell>rc-NAME")
     print(
-        f"Install: shellctl compose pick {pick_hint} [...]  "
+        f"Install: shellenv compose pick {pick_hint} [...]  "
         "(first column below; repeat basename or add several names in one command)"
     )
     print()
@@ -698,7 +698,7 @@ def _handle_list_backups() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Command-line processor for shellctl."""
+    """Command-line processor for shellenv."""
     if argv is None:
         argv = sys.argv[1:]
     parser = build_parser()
@@ -728,7 +728,7 @@ def main(argv: list[str] | None = None) -> int:
             shell_path = info.get("intended_shell")
         # honor CLI flag to force shell-level tracer
         if getattr(args, "use_shell_trace", False):
-            os.environ["SHELLCTL_USE_SHELL_TRACE"] = "1"
+            os.environ["SHELLENV_USE_SHELL_TRACE"] = "1"
         refresh_cache = getattr(args, "refresh_cache", False)
         # normalize family
         if isinstance(family, str):

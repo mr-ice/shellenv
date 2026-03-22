@@ -1,6 +1,6 @@
 """Tests for the discover modes functionality."""
 
-from shellctl.discover import discover_startup_files_modes
+from shellenv.discover import discover_startup_files_modes
 
 
 def test_discover_modes_keys_and_contents(tmp_path, monkeypatch):

@@ -46,7 +46,7 @@ ptw:  ## Run pytest-watch (if installed)
 clean:  ## Remove pycache and build artifacts
 	rm -rf build dist *.egg-info .pytest_cache **/__pycache__
 
-##@ Patched bash (for shellctl tracing; output: bash-src/bash)
+##@ Patched bash (for shellenv tracing; output: bash-src/bash)
 
 bash-src/bash: $(BASH_BUILT) ## Fetch, patch, build, copy to bash-src/bash
 	mkdir -p bash-src
@@ -79,7 +79,7 @@ $(BASH_TAR):
 clean-bash:  ## Remove downloaded bash tarball, build tree, and bash-src/bash
 	rm -rf $(BASH_DIR) $(BASH_TAR) $(BASH_INSTALL)
 
-##@ Patched tcsh (for shellctl tracing; output: tcsh-src/tcsh)
+##@ Patched tcsh (for shellenv tracing; output: tcsh-src/tcsh)
 
 tcsh-src/tcsh: $(TCSH_BUILT) ## Clone, patch, build, copy to tcsh-src/tcsh
 	mkdir -p tcsh-src

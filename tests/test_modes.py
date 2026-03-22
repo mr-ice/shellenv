@@ -1,6 +1,6 @@
 """Tests for the shared modes module."""
 
-from shellctl.modes import (
+from shellenv.modes import (
     INVOCATION_MODES,
     mode_to_args,
     resolve_modes,

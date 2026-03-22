@@ -53,7 +53,7 @@ def get_bash_for_tracing(shell_path: str | None = None) -> str | None:
 
     Checks (in order):
     1. shell_path if provided and executable
-    2. SHELLCTL_BASH_PATH (patched bash from patches/bash-sourcetrace.patch)
+    2. SHELLENV_BASH_PATH (patched bash from patches/bash-sourcetrace.patch)
     3. bash-src/bash if present (local build from project root)
     4. shutil.which("bash") as fallback (no per-file source trace lines)
     """
@@ -61,7 +61,7 @@ def get_bash_for_tracing(shell_path: str | None = None) -> str | None:
 
     if shell_path and os.path.isfile(shell_path) and os.access(shell_path, os.X_OK):
         return shell_path
-    env_path = os.environ.get("SHELLCTL_BASH_PATH")
+    env_path = os.environ.get("SHELLENV_BASH_PATH")
     if env_path and os.path.isfile(env_path) and os.access(env_path, os.X_OK):
         return env_path
     for base in (Path(__file__).resolve().parents[2], Path.cwd()):
@@ -76,7 +76,7 @@ def get_tcsh_for_tracing(shell_path: str | None = None) -> str | None:
 
     Checks (in order):
     1. shell_path if provided and executable
-    2. SHELLCTL_TCSH_PATH (patched tcsh built from patches/README.md)
+    2. SHELLENV_TCSH_PATH (patched tcsh built from patches/README.md)
     3. tcsh-src/tcsh if present (local build from project root)
     4. shutil.which("tcsh") as fallback (may not support TCSH_XTRACEFD)
     """
@@ -84,10 +84,10 @@ def get_tcsh_for_tracing(shell_path: str | None = None) -> str | None:
 
     if shell_path and os.path.isfile(shell_path) and os.access(shell_path, os.X_OK):
         return shell_path
-    env_path = os.environ.get("SHELLCTL_TCSH_PATH")
+    env_path = os.environ.get("SHELLENV_TCSH_PATH")
     if env_path and os.path.isfile(env_path) and os.access(env_path, os.X_OK):
         return env_path
-    # tcsh-src/tcsh relative to project (shellctl root or cwd)
+    # tcsh-src/tcsh relative to project (shellenv root or cwd)
     for base in (Path(__file__).resolve().parents[2], Path.cwd()):
         candidate = base / "tcsh-src" / "tcsh"
         if candidate.is_file() and os.access(candidate, os.X_OK):
@@ -123,9 +123,9 @@ def run_shell_trace(
 
     # For bash: use BASH_XTRACEFD to redirect xtrace to a temp file and
     # set PS4 to include a timestamp and the ${BASH_SOURCE}:${LINENO} info.
-    # Support mock traces for tests: if SHELLCTL_MOCK_TRACE_DIR is set
+    # Support mock traces for tests: if SHELLENV_MOCK_TRACE_DIR is set
     # try to load a fixture file named {family}_{mode}.txt and return it.
-    mock_dir = os.environ.get("SHELLCTL_MOCK_TRACE_DIR")
+    mock_dir = os.environ.get("SHELLENV_MOCK_TRACE_DIR")
     if mock_dir:
         # derive mode from args: login vs nonlogin, interactive vs noninteractive
         _args = args or []

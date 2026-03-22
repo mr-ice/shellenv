@@ -18,7 +18,7 @@ get_registry()
 
 Environment (testing)
 ---------------------
-``SHELLCTL_COMPOSE_ALLOW_DIRTY``
+``SHELLENV_COMPOSE_ALLOW_DIRTY``
     If truthy, accept git repos on ``main``/``master`` even when the working
     tree is dirty. Strict cleanliness is still enforced when unset.
 """
@@ -52,7 +52,7 @@ DEFAULT_SHELL_RC_FILES: dict[str, list[str]] = {
 
 def _registry_path() -> Path:
     """Return the path to the compose registry file."""
-    cache = Path(os.environ.get("SHELLCTL_CACHE_DIR") or Path.home() / ".cache" / "shellctl")
+    cache = Path(os.environ.get("SHELLENV_CACHE_DIR") or Path.home() / ".cache" / "shellenv")
     cache.mkdir(parents=True, exist_ok=True)
     return cache / "compose_registry.json"
 
@@ -126,12 +126,12 @@ def _extract_summary(path: Path) -> str:
 
 
 def _compose_allow_dirty_from_env() -> bool:
-    """Check if ``SHELLCTL_COMPOSE_ALLOW_DIRTY`` is set (testing / local use).
+    """Check if ``SHELLENV_COMPOSE_ALLOW_DIRTY`` is set (testing / local use).
 
     When set, compose still requires a git worktree on ``main``/``master`` but
     allows a non-clean working tree (porcelain output).
     """
-    v = os.environ.get("SHELLCTL_COMPOSE_ALLOW_DIRTY", "")
+    v = os.environ.get("SHELLENV_COMPOSE_ALLOW_DIRTY", "")
     return str(v).lower() in ("1", "true", "yes", "on")
 
 

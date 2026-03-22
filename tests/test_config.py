@@ -1,4 +1,4 @@
-from shellctl.config import _load_cfg_safe, default_config_dict
+from shellenv.config import _load_cfg_safe, default_config_dict
 
 
 def test_load_config_safe(tmp_path):
