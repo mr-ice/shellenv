@@ -64,7 +64,7 @@ class TestValidateEditorConfig:
             "compose": {
                 "paths": ["/a", "/b"],
                 "shell_rc_files": ["zshrc", "zshenv"],
-                "allow_non_repo": "false",
+                "allow_dirty_or_off_main": "false",
             },
         }
         p = tmp_path / "cfg.toml"

@@ -174,3 +174,7 @@ class TestValidateConfig:
     def test_partial_config_is_valid(self):
         data = {"repo": {"url": "https://example.com"}}
         assert validate_config(data) == []
+
+    def test_compose_allow_non_repo_legacy_key_validates(self):
+        data = {"compose": {"allow_non_repo": "true", "paths": []}}
+        assert validate_config(data) == []

@@ -104,8 +104,18 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
         key="compose.paths",
         value_type="list_of_strings",
         default=[],
-        description="Compose sources: local directories (current) or git URLs (planned); see PROJECT.md",
+        description="Compose sources: git URLs, local git repos, or plain directories; see PROJECT.md",
         merge_strategy="append",
+    ),
+    "compose.allowed_path_kinds": ConfigKey(
+        key="compose.allowed_path_kinds",
+        value_type="list_of_strings",
+        default=["repo", "directory"],
+        description=(
+            "Allowed kinds for [compose] paths entries: repo (URL or git worktree), "
+            "directory (plain folder); see PROJECT.md"
+        ),
+        merge_strategy="replace",
     ),
     "compose.shell_rc_files": ConfigKey(
         key="compose.shell_rc_files",
@@ -114,13 +124,29 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
         description="RC file variants (e.g. zshrc, zshenv, zprofile)",
         merge_strategy="append",
     ),
-    "compose.allow_non_repo": ConfigKey(
-        key="compose.allow_non_repo",
+    "compose.allow_dirty_or_off_main": ConfigKey(
+        key="compose.allow_dirty_or_off_main",
         value_type="string",
         default="false",
-        description="Allow compose paths that are not git repos on main:HEAD",
+        description=(
+            "If true, scan compose sources even when not on main/master at a clean HEAD; "
+            "if false, require main:HEAD (see SHELLENV_COMPOSE_ALLOW_DIRTY for dirty-on-main). "
+            "Plain directories outside any git worktree are always scanned if allowed by "
+            "allowed_path_kinds. Defaults to false."
+        ),
     ),
 }
+
+
+def _migrate_compose_legacy_keys(data: dict[str, Any]) -> None:
+    """Rename deprecated ``compose.allow_non_repo`` to ``allow_dirty_or_off_main`` (in place)."""
+    c = data.get("compose")
+    if not isinstance(c, dict) or "allow_non_repo" not in c:
+        return
+    if "allow_dirty_or_off_main" not in c:
+        c["allow_dirty_or_off_main"] = c.pop("allow_non_repo")
+    else:
+        c.pop("allow_non_repo", None)
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +376,9 @@ def validate_config(data: dict[str, Any]) -> list[str]:
     list[str]
         Human-readable error messages.  Empty list means valid.
     """
+    if isinstance(data.get("compose"), dict) and "allow_non_repo" in data["compose"]:
+        data = {**data, "compose": {**data["compose"]}}
+        _migrate_compose_legacy_keys(data)
     known = _known_sections()
     errors = _check_unknown_sections(data, known)
     errors.extend(_check_value_types(data))
@@ -406,7 +435,10 @@ def load_config(path: Path) -> dict[str, Any]:
         return {}
     try:
         with open(path, "rb") as f:
-            return tomllib.load(f)
+            data = tomllib.load(f)
+        if isinstance(data, dict):
+            _migrate_compose_legacy_keys(data)
+        return data
     except Exception:
         return {}
 

@@ -14,7 +14,7 @@ This document is the product spec. For day-to-day CLI usage and developer comman
 - **Site template**: `config/shellenv.global.defaults.toml` in the repo is a full commented template (regenerate with `shellenv config init-global --path …`).
 - **Override global path (installs, CI, pytest)**: set **`SHELLENV_GLOBAL_CONFIG_PATH`** to another file instead of `/etc/shellenv.toml`.
 
-Relevant schema keys include `trace.*`, `repo.*`, `compose.*`, and **`shellenv.tool_repo_path`** (clone location for this tool’s own repo, default `~/.shellenv`). See `src/shellenv/config.py` (`CONFIG_SCHEMA`).
+Relevant schema keys include `trace.*`, `repo.*`, `compose.*` (including **`compose.allowed_path_kinds`**), and **`shellenv.tool_repo_path`** (clone location for this tool’s own repo, default `~/.shellenv`). See `src/shellenv/config.py` (`CONFIG_SCHEMA`).
 
 ## Compose (feature summary)
 
@@ -28,9 +28,16 @@ Composable init fragments use filenames `{rc_base}-{tag}` (e.g. `zshrc-fzf`); th
 
 ### Current implementation
 
-`compose.paths` now accepts **git URLs** and **filesystem git repos**. Both are treated as clone sources: shellenv clones/updates each source under `shellenv.tool_repo_path/compose-sources` and scans the **clone** for compose fragments (not the original source directory). Tests use fixtures under `repos/compose/teamA/env` and `repos/compose/teamB/env`.
+`compose.paths` entries are classified as **REPO** or **DIRECTORY** (config: `compose.allowed_path_kinds`, list of `repo` and/or `directory`, case-insensitive):
 
-Remaining product work: parent-rc **warnings** when `~/.zprofile` (etc.) does not source `~/.{rc}-*` fragments; **`update`** to refresh clones and symlink targets.
+- **REPO** — remote URL, or a **local path to the root of a git repository** (the directory contains `.git`). Cloned/updated under `shellenv.tool_repo_path/compose-sources`, then the **clone** is scanned. **`compose.allow_dirty_or_off_main`** and **`SHELLENV_COMPOSE_ALLOW_DIRTY`** gate how strict “main/master at HEAD” must be for that clone. A subdirectory *inside* another repo (no `.git` there) counts as **DIRECTORY**, not REPO.
+- **DIRECTORY** — a **local path with no `.git` in that directory** (often a plain folder, or a subdirectory of a monorepo). Scanned **in place** (no clone). Folders **outside** any git worktree are always scanned. If the path **lies inside** a git worktree, the same policy applies as for REPO clones: when **`compose.allow_dirty_or_off_main`** is false (default), the worktree must be on **main** or **master** at a clean HEAD (unless **`SHELLENV_COMPOSE_ALLOW_DIRTY`** relaxes dirtiness on main); set **`compose.allow_dirty_or_off_main`** to true to allow other branches or non-main:HEAD states. Config files may still use the deprecated key **`allow_non_repo`**; it is treated as **`allow_dirty_or_off_main`** on load.
+
+If an entry’s kind is **not** listed in `allowed_path_kinds`, shellenv **skips** it and emits a **warning** (stderr for `compose list` / `compose pick` / compose TUI). Unknown tokens in `allowed_path_kinds` are ignored with a warning; an empty list falls back to allowing both. Default is **`["repo", "directory"]`** so existing setups keep working.
+
+Tests use fixtures under `repos/compose/teamA/env` and `repos/compose/teamB/env`.
+
+Remaining product work: **`update`** to refresh clones and symlink targets. Parent-rc warnings are implemented for post-install.
 
 ## Features
 
@@ -58,12 +65,13 @@ Remaining product work: parent-rc **warnings** when `~/.zprofile` (etc.) does no
 
 10. **`init` command** — Archive files that would be overwritten if not already archived, then copy family-appropriate files from the repo into the home directory.
 
-11. **`compose`** — Pick optional init files discovered from **cloned** repos listed as URLs in `compose.paths` (file picker in interactive/TUI; CLI match in non-interactive). First line is a short description comment; longer comments follow. Show the short line next to the filename in lists.
-    1. Each `compose.paths` entry is a **git URL**; shellenv **clones** it under the user’s home (layout TBD), scans for fragments, and **symlinks** chosen files into `~` as `~/.{name}` (leading dot). Optional org-specific URL allow/deny rules can be added later.
-    2. Filenames `{shell}{part}-{tag}` with `{shell}{part}` matching a known startup basename; `-{tag}` is unique.
-    3. Registry of user selections (persisted with compose state).
-    4. **`shellenv.tool_repo_path`** — default `~/.shellenv` — where the shellenv tool repo itself is cloned/updated alongside compose sources.
-    5. Warn if the parent rc (e.g. `~/.zprofile`) does not source the `-*` fragments (repos should include the stanza), e.g.:
+11. **`compose`** — Pick optional init files from `compose.paths` (file picker in interactive/TUI; CLI match in non-interactive). First line is a short description comment; longer comments follow. Show the short line next to the filename in lists.
+    1. **`compose.allowed_path_kinds`** lists which kinds of entries are permitted: **`repo`** (remote URL or local path whose directory contains `.git` → clone/update under `shellenv.tool_repo_path/compose-sources`, then scan the clone) and **`directory`** (path with no `.git` there → scan in place; git policy via **`compose.allow_dirty_or_off_main`** when the path falls inside a worktree). Entries of a disallowed kind are skipped with a **warning**. Default allows both.
+    2. Chosen fragments are **symlinked** into `~` as `~/.{name}` (leading dot).
+    3. Filenames `{shell}{part}-{tag}` with `{shell}{part}` matching a known startup basename; `-{tag}` is unique.
+    4. Registry of user selections (persisted with compose state).
+    5. **`shellenv.tool_repo_path`** — default `~/.shellenv` — where the shellenv tool repo itself is cloned/updated alongside compose sources.
+    6. Warn if the parent rc (e.g. `~/.zprofile`) does not source the `-*` fragments (repos should include the stanza), e.g.:
     ```sh
     for _rc in $HOME/.zshenv-*; do
         source $_rc
@@ -76,11 +84,11 @@ Remaining product work: parent-rc **warnings** when `~/.zprofile` (etc.) does no
 
 - Each feature should have tests before it is wired into operator scripts and the TUI.
 - **Pytest / hermetic config**: point **`SHELLENV_GLOBAL_CONFIG_PATH`** at a temp site TOML; patch or redirect **`user_config_path`** in tests that must not read the developer’s real `~/.shellenv.toml`.
-- **Compose**: today’s tests use **`compose.allow_non_repo`** or `allow_non_repo=True` for paths that are not git repos; **`SHELLENV_COMPOSE_ALLOW_DIRTY`** when a real repo on `main` is intentionally dirty; fixtures **`repos/compose/teamA`** / **`teamB`**. After **URL + clone** compose lands, add coverage for clone layout, symlinks, and **`shellenv.tool_repo_path`**.
+- **Compose**: tests cover **`compose.allowed_path_kinds`**, **`compose.allow_dirty_or_off_main`**, **`SHELLENV_COMPOSE_ALLOW_DIRTY`** on `main`, clone layout, symlinks, **`shellenv.tool_repo_path`**, and fixtures **`repos/compose/teamA`** / **`teamB`**.
 
 ## Issue tracker
 
-**Standard stack (this repo and future projects): [Vikunja](https://vikunja.io)** — open-source task manager with kanban (buckets), lists, comments, CalDAV, and a REST API.
+**Standard stack (this repo and future projects): [Vikunja](https://vikunja.io)** — open-source task manager with kanban (buckets), lists, comments, CalDAV, and a REST API. Vikunja is the **selected** tracker; workflow for commits and subjects is under **Tracker choice** and **Commits and keeping Vikunja in sync** below.
 
 ### Run Vikunja locally (Docker on this Mac)
 
@@ -116,6 +124,21 @@ Map Vikunja **kanban buckets** to `.cursor/rules/issue-tracker-kanban.mdc`:
 | Doing   | Bucket named **Doing**     |
 | Done    | Bucket named **Done**      |
 
+### Tracker choice
+
+**Vikunja** is the **selected** issue tracker for this repo (see `.cursor/rules/issue-tracker-kanban.mdc`). Use the **shellenv** Vikunja project for shellenv work unless you create a different project and document it here.
+
+### Commits and keeping Vikunja in sync
+
+When **preparing a commit** for work tied to a task:
+
+1. **Update Vikunja** for that task (and any related tasks): add a **comment**, adjust **percent done**, and/or **move buckets** (**To Do** / **Ready** / **Doing** / **Done**) so the board matches reality.
+2. **Commit subject line**: the **first word** must be **`<project>-<issue-number>`** — project slug (e.g. `shellenv`) and the task’s **numeric id** in Vikunja, then the rest of the summary.
+
+   Example: `shellenv-14 Document compose symlink install`
+
+This keeps git history and the kanban traceable to the same issue.
+
 ### API access (agents, scripts, integrations)
 
 Vikunja’s [API documentation](https://vikunja.io/docs/api-documentation/) lives at **`/api/v1/docs`** on your instance (for example `http://localhost:3456/api/v1/docs`).
@@ -132,6 +155,8 @@ Vikunja’s [API documentation](https://vikunja.io/docs/api-documentation/) live
    ```
 
 For Cursor or other automation, keep the token in a **secret** the agent can read (for example an environment variable such as `VIKUNJA_API_TOKEN` in your shell profile, or Cursor’s secrets / env injection). **Do not** commit tokens or paste them into the repo. The server’s `infra/vikunja/.env` is for **deployment** secrets (DB, JWT signing), not per-user API tokens.
+
+**This repo (Cursor agents):** use **`CURSOR_VIKUNJA_API_TOKEN`** in **`.cursor/rules/.env`** (gitignored). See `.cursor/rules/issue-tracker-kanban.mdc` → *Agent API token*.
 
 ### Access and secrets
 

@@ -127,14 +127,14 @@ class TestListComposeFiles:
     """Tests for listing compose files."""
 
     def test_empty_paths(self):
-        files = list_compose_files("zsh", paths=[], allow_non_repo=True)
+        files = list_compose_files("zsh", paths=[], allow_dirty_or_off_main=True)
         assert files == []
 
     def test_nonexistent_path_skipped(self):
         files = list_compose_files(
             "zsh",
             paths=["/nonexistent/path/12345"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
         assert files == []
 
@@ -150,7 +150,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(tmp_path)],
             shell_rc_files=["zshrc", "zshenv"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
 
         by_name = {cf.name: cf for cf in files}
@@ -171,7 +171,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(tmp_path)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
         assert [f.name for f in files] == ["good", "bad"]
         assert files[0].summary_valid is True
@@ -186,7 +186,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(tmp_path)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
         v, inv = split_compose_by_summary_valid(files)
         assert len(v) == 1 and v[0].name == "a"
@@ -206,31 +206,71 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(d1), str(d2)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
         # First occurrence wins
         assert len([f for f in files if f.name == "foo"]) == 1
 
-    def test_non_git_directory_skipped_when_strict(self, tmp_path):
+    def test_plain_directory_outside_git_scanned_even_when_strict(self, tmp_path):
         d = tmp_path / "nogit"
         d.mkdir()
         (d / "zshrc-plain").write_text("# ok\n")
-        assert (
-            list_compose_files(
-                "zsh",
-                paths=[str(d)],
-                shell_rc_files=["zshrc"],
-                allow_non_repo=False,
-            )
-            == []
-        )
-        found = list_compose_files(
+        strict = list_compose_files(
             "zsh",
             paths=[str(d)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=False,
         )
-        assert found == []
+        assert len(strict) == 1 and strict[0].name == "plain"
+        relaxed = list_compose_files(
+            "zsh",
+            paths=[str(d)],
+            shell_rc_files=["zshrc"],
+            allow_dirty_or_off_main=True,
+        )
+        assert len(relaxed) == 1 and relaxed[0].name == "plain"
+
+    def test_directory_inside_git_repo_off_main_strict_skips_relaxed_scans(self, tmp_path):
+        repo = tmp_path / "mon"
+        repo.mkdir()
+        env = repo / "env"
+        env.mkdir()
+        (env / "zshrc-nested").write_text("# nested\n")
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "t@t"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "t"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "init"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "dev"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        strict = list_compose_files(
+            "zsh",
+            paths=[str(env.resolve())],
+            shell_rc_files=["zshrc"],
+            allow_dirty_or_off_main=False,
+        )
+        assert strict == []
+        relaxed = list_compose_files(
+            "zsh",
+            paths=[str(env.resolve())],
+            shell_rc_files=["zshrc"],
+            allow_dirty_or_off_main=True,
+        )
+        assert len(relaxed) == 1 and relaxed[0].name == "nested"
 
     def test_dirty_local_repo_is_cloned_then_scanned(self, tmp_path):
         repo = tmp_path / "r"
@@ -242,7 +282,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(repo)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
         assert len(files) == 1 and files[0].name == "x"
 
@@ -257,7 +297,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[str(repo)],
             shell_rc_files=["zshrc"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
         assert len(files) == 1 and files[0].name == "x"
 
@@ -292,7 +332,7 @@ class TestListComposeFiles:
             "zsh",
             paths=[origin.resolve().as_uri()],
             shell_rc_files=["zshrc"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
 
         assert len(files) == 1
@@ -316,7 +356,7 @@ class TestComposeFixtureRepos:
             "tcsh",
             paths=[str(COMPOSE_TEAM_A_ENV.resolve())],
             shell_rc_files=["tcshrc"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
         names = {f.name for f in files}
         assert names >= {"teamshell", "teammore"}
@@ -328,7 +368,7 @@ class TestComposeFixtureRepos:
             "bash",
             paths=[str(COMPOSE_TEAM_B_ENV.resolve())],
             shell_rc_files=["bashrc", "bash_profile"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
         names = {f.name for f in files}
         assert names >= {"bono"}
@@ -343,7 +383,7 @@ class TestComposeFixtureRepos:
                 str(COMPOSE_TEAM_B_ENV.resolve()),
             ],
             shell_rc_files=["bashrc"],
-            allow_non_repo=True,
+            allow_dirty_or_off_main=True,
         )
         # team A has no bashrc-*; team B has bashrc-bono
         assert [f.name for f in files if f.rc_base == "bashrc"] == ["bono"]
@@ -363,7 +403,7 @@ class TestComposeFixtureRepos:
         files = list_compose_files(
             "tcsh",
             shell_rc_files=["tcshrc"],
-            allow_non_repo=False,
+            allow_dirty_or_off_main=False,
         )
         names = {f.name for f in files}
         assert names >= {"teamshell", "teammore"}
@@ -419,6 +459,97 @@ class TestInstallComposeFiles:
         assert reg[0]["source_path"] == str(src / "zshrc-fzf")
         assert reg[0]["dest_basename"] == ".zshrc-fzf"
         assert reg[0]["install_mode"] == "symlink"
+
+
+class TestComposeAllowedPathKinds:
+    """compose.allowed_path_kinds (repo vs directory)."""
+
+    @staticmethod
+    def _patch_merged_config(monkeypatch, tmp_path: Path, paths: list[str], **compose_extras: object) -> None:
+        data: dict = {
+            "compose": {
+                "paths": paths,
+                "allow_dirty_or_off_main": "false",
+                "shell_rc_files": [],
+            },
+            "shellenv": {"tool_repo_path": str(tmp_path / ".shellenv")},
+        }
+        data["compose"].update(compose_extras)
+        monkeypatch.setattr("shellenv.config.load_merged_config", lambda: data)
+
+    def test_directory_scan_when_only_directory_allowed(self, tmp_path, monkeypatch):
+        plain = tmp_path / "plain"
+        plain.mkdir()
+        (plain / "zshrc-onlydir").write_text("# only dir\n")
+        self._patch_merged_config(
+            monkeypatch,
+            tmp_path,
+            [str(plain)],
+            allowed_path_kinds=["directory"],
+        )
+        w: list[str] = []
+        files = list_compose_files("zsh", shell_rc_files=["zshrc"], path_kind_warnings=w)
+        assert not w
+        assert len(files) == 1 and files[0].name == "onlydir"
+
+    def test_repo_skipped_when_only_directory_allowed(self, tmp_path, monkeypatch):
+        repo = tmp_path / "r"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "t@t"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "t"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        (repo / "zshrc-x").write_text("# x\n")
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "i"], cwd=repo, check=True, capture_output=True)
+        self._patch_merged_config(
+            monkeypatch,
+            tmp_path,
+            [str(repo.resolve())],
+            allowed_path_kinds=["directory"],
+        )
+        w: list[str] = []
+        files = list_compose_files("zsh", shell_rc_files=["zshrc"], path_kind_warnings=w)
+        assert files == []
+        assert w and ("REPO" in w[0] or "repo" in w[0].lower())
+
+    def test_plain_directory_skipped_when_only_repo_allowed(self, tmp_path, monkeypatch):
+        plain = tmp_path / "plain"
+        plain.mkdir()
+        (plain / "zshrc-a").write_text("# A\n")
+        self._patch_merged_config(
+            monkeypatch,
+            tmp_path,
+            [str(plain)],
+            allowed_path_kinds=["repo"],
+        )
+        w: list[str] = []
+        files = list_compose_files("zsh", shell_rc_files=["zshrc"], path_kind_warnings=w)
+        assert files == []
+        assert w and "DIRECTORY" in w[0]
+
+    def test_unknown_kind_token_warns(self, tmp_path, monkeypatch):
+        plain = tmp_path / "plain"
+        plain.mkdir()
+        (plain / "zshrc-a").write_text("# A\n")
+        self._patch_merged_config(
+            monkeypatch,
+            tmp_path,
+            [str(plain)],
+            allowed_path_kinds=["directory", "bogus"],
+        )
+        w: list[str] = []
+        list_compose_files("zsh", shell_rc_files=["zshrc"], path_kind_warnings=w)
+        assert any("unknown allowed_path_kinds" in x for x in w)
 
 
 class TestComposeParentRcWarnings:

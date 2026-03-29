@@ -593,7 +593,10 @@ def _handle_compose_list(family: str) -> int:
     """List available compose files with summaries."""
     from .compose import list_compose_files, split_compose_by_summary_valid
 
-    files = list_compose_files(family)
+    path_warnings: list[str] = []
+    files = list_compose_files(family, path_kind_warnings=path_warnings)
+    for msg in path_warnings:
+        print(msg, file=sys.stderr)
     if not files:
         print("No compose files found. Configure compose.paths in config.")
         return 0
@@ -650,7 +653,10 @@ def _handle_compose_pick(args: argparse.Namespace, family: str) -> int:
         print("Specify file(s) to install (e.g. .zshrc-fzf) or use --tui", file=sys.stderr)
         return 1
 
-    available = list_compose_files(family)
+    path_warnings: list[str] = []
+    available = list_compose_files(family, path_kind_warnings=path_warnings)
+    for msg in path_warnings:
+        print(msg, file=sys.stderr)
     by_dest = {cf.dest_basename: cf for cf in available}
     selections: list = []
     for n in names:

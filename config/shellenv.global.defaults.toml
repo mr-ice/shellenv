@@ -6,11 +6,14 @@
 # tool_repo_path = "~/.shellenv"
 
 [compose]
-# Allow compose paths that are not git repos on main:HEAD
-allow_non_repo = "false"
+# If true, allow off-main branches or non-main:HEAD; plain dirs outside any git worktree always scan
+allow_dirty_or_off_main = "false"
 
-# Compose sources: local directories (today) or git repo URLs (planned); see PROJECT.md
+# Compose sources: git URLs, local git repos, or plain directories; see PROJECT.md
 paths = []
+
+# Allowed kinds for each compose.paths entry: repo (URL or git worktree), directory (plain folder)
+# allowed_path_kinds = [ "repo", "directory" ]
 
 # RC file variants (e.g. zshrc, zshenv, zprofile)
 shell_rc_files = []

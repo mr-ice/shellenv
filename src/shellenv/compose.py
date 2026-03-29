@@ -7,7 +7,7 @@ selections and their sources for future updates.
 
 Public API
 ----------
-list_compose_files(family, shell_rc_files, paths, allow_non_repo)
+list_compose_files(family, shell_rc_files, paths, allow_dirty_or_off_main, path_kind_warnings)
     Scan paths and return available compose files with metadata.
 split_compose_by_summary_valid(files)
     Split results into valid vs invalid summary headers.
@@ -128,6 +128,22 @@ def _extract_summary(path: Path) -> str:
     return summary if valid else ""
 
 
+def _inside_git_worktree(dir_path: Path) -> bool:
+    """Return True if *dir_path* is inside a git worktree."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(dir_path), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return False
+        return "true" in result.stdout.strip().lower()
+    except Exception:
+        return False
+
+
 def _compose_allow_dirty_from_env() -> bool:
     """Check if ``SHELLENV_COMPOSE_ALLOW_DIRTY`` is set (testing / local use).
 
@@ -152,19 +168,10 @@ def _is_repo_on_main(path: Path) -> bool:
         True if the directory is a git repo and is on main at HEAD.
     """
     dir_path = path if path.is_dir() else path.parent
+    if not _inside_git_worktree(dir_path):
+        return False
     allow_dirty = _compose_allow_dirty_from_env()
     try:
-        result = subprocess.run(
-            ["git", "-C", str(dir_path), "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode != 0:
-            return False
-        if "true" not in result.stdout.strip().lower():
-            return False
-
         # Check branch is main and we're at HEAD (no uncommitted, no ahead/behind)
         branch = subprocess.run(
             ["git", "-C", str(dir_path), "rev-parse", "--abbrev-ref", "HEAD"],
@@ -196,6 +203,20 @@ def _is_repo_on_main(path: Path) -> bool:
         return True
     except Exception:
         return False
+
+
+def _compose_git_policy_allows_scan(dir_path: Path, allow_dirty_or_off_main: bool) -> bool:
+    """Whether *dir_path* may be scanned given strict vs relaxed git policy.
+
+    Directories outside any git worktree are always allowed. Inside a worktree,
+    strict mode requires :func:`_is_repo_on_main` (honouring
+    ``SHELLENV_COMPOSE_ALLOW_DIRTY`` for dirty trees on main).
+    """
+    if allow_dirty_or_off_main:
+        return True
+    if not _inside_git_worktree(dir_path):
+        return True
+    return _is_repo_on_main(dir_path)
 
 
 def _shell_rc_files_for_family(
@@ -281,17 +302,163 @@ def _ensure_cloned_source(source_id: str, clone_from: str, root: Path) -> Path |
         return None
 
 
+def _emit_compose_warning(msg: str, warnings_out: list[str] | None) -> None:
+    logger.warning(msg)
+    if warnings_out is not None:
+        warnings_out.append(msg)
+
+
+def _normalized_allowed_path_kinds(
+    cfg: dict[str, Any],
+    warnings_out: list[str] | None,
+) -> frozenset[str]:
+    """Return allowed kinds; unknown config tokens and empty lists fall back to both."""
+    KNOWN = frozenset({"repo", "directory"})
+    raw = cfg.get("compose", {}).get("allowed_path_kinds")
+    if raw is None:
+        return KNOWN
+    if isinstance(raw, list) and len(raw) == 0:
+        _emit_compose_warning(
+            "compose: allowed_path_kinds is empty; allowing both repo and directory",
+            warnings_out,
+        )
+        return KNOWN
+    allowed: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        k = item.strip().lower()
+        if k in KNOWN:
+            allowed.add(k)
+        elif k:
+            _emit_compose_warning(
+                f"compose: unknown allowed_path_kinds value {item!r} (ignored); use repo or directory",
+                warnings_out,
+            )
+    if not allowed:
+        _emit_compose_warning(
+            "compose: allowed_path_kinds had no valid entries; allowing both repo and directory",
+            warnings_out,
+        )
+        return KNOWN
+    return frozenset(allowed)
+
+
+def _is_git_worktree_dir(dir_path: Path) -> bool:
+    """Return True if *dir_path* is the root of a git worktree (has ``.git``).
+
+    Subdirectories inside another repo without their own ``.git`` are treated as
+    **directory** sources, not **repo** clones, so ``compose.paths`` under a dev
+    monorepo is not mistaken for a REPO entry.
+    """
+    if not dir_path.is_dir():
+        return False
+    if not (dir_path / ".git").exists():
+        return False
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(dir_path), "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return r.returncode == 0 and "true" in r.stdout.strip().lower()
+    except Exception:
+        return False
+
+
+def _classify_compose_path_element(source_str: str) -> tuple[str | None, str | None]:
+    """Classify a compose.paths entry as ``repo`` or ``directory``.
+
+    Returns
+    -------
+    tuple[str | None, str | None]
+        ``(kind, None)`` or ``(None, error_reason)`` when the entry should be skipped.
+    """
+    if _looks_like_git_url(source_str):
+        return ("repo", None)
+    path = Path(source_str).expanduser()
+    if not path.exists():
+        return (None, f"path does not exist: {source_str!r}")
+    resolved = path.resolve()
+    if not resolved.is_dir():
+        return (None, f"not a directory: {source_str!r}")
+    if _is_git_worktree_dir(resolved):
+        return ("repo", None)
+    return ("directory", None)
+
+
+def _allowed_kinds_label(allowed: frozenset[str]) -> str:
+    parts: list[str] = []
+    if "repo" in allowed:
+        parts.append("REPO")
+    if "directory" in allowed:
+        parts.append("DIRECTORY")
+    return ", ".join(parts) if parts else "REPO, DIRECTORY"
+
+
+def _scan_compose_directory(
+    dir_path: Path,
+    shell_rc_files: list[str],
+    seen: set[tuple[str, str]],
+    result: list[ComposeFile],
+) -> None:
+    """Append matching compose files found directly under *dir_path*."""
+    for rc_base in shell_rc_files:
+        pattern = re.compile(rf"^{re.escape(rc_base)}-(.+)$")
+        for entry in dir_path.iterdir():
+            if not entry.is_file():
+                continue
+            m = pattern.match(entry.name)
+            if not m:
+                continue
+            name = m.group(1)
+            key = (rc_base, name)
+            if key in seen:
+                logger.debug(
+                    "list_compose_files: skipping %s (duplicate)",
+                    entry.name,
+                )
+                continue
+            seen.add(key)
+
+            dest_basename = f".{rc_base}-{name}"
+            summary, summary_valid = _parse_compose_summary(entry)
+            if not summary_valid:
+                summary = INVALID_COMPOSE_SUMMARY
+            logger.debug(
+                "list_compose_files: found %s -> %s (summary=%r valid=%s)",
+                entry.name,
+                dest_basename,
+                summary[:50] if summary else "",
+                summary_valid,
+            )
+            result.append(
+                ComposeFile(
+                    source_path=str(entry),
+                    rc_base=rc_base,
+                    name=name,
+                    dest_basename=dest_basename,
+                    summary=summary,
+                    summary_valid=summary_valid,
+                )
+            )
+
+
 def list_compose_files(
     family: str,
     shell_rc_files: list[str] | None = None,
     paths: list[str] | None = None,
-    allow_non_repo: bool | None = None,
+    allow_dirty_or_off_main: bool | None = None,
+    path_kind_warnings: list[str] | None = None,
 ) -> list[ComposeFile]:
     """Scan compose paths for available shell init files.
 
     Files must match the pattern {shellrc}-{name} (e.g. zshrc-fzf).
-    By default, directories not in a git repo or not on main:HEAD are
-    skipped unless allow_non_repo is True.
+    By default, cloned repos and directories inside a git worktree must be on
+    a clean main/master at HEAD (unless ``SHELLENV_COMPOSE_ALLOW_DIRTY``);
+    set ``compose.allow_dirty_or_off_main`` or pass *allow_dirty_or_off_main*
+    to relax that. Plain directories outside any git worktree are always scanned.
 
     Parameters
     ----------
@@ -301,8 +468,11 @@ def list_compose_files(
         RC variants to look for. If None, uses config or family defaults.
     paths : list[str] or None
         Directories to scan. If None, uses compose.paths from config.
-    allow_non_repo : bool
-        If True, include directories that are not git repos or not on main.
+    allow_dirty_or_off_main : bool
+        If True, scan even when not on main/master at HEAD. If None, uses
+        ``compose.allow_dirty_or_off_main`` from config.
+    path_kind_warnings : list[str] or None
+        If provided, append human-readable policy warnings (also logged).
 
     Returns
     -------
@@ -331,28 +501,62 @@ def list_compose_files(
         logger.debug("list_compose_files: no paths configured, returning empty")
         return []
 
-    # Use config for allow_non_repo when not explicitly passed
-    if allow_non_repo is None:
-        allow_cfg = cfg.get("compose", {}).get("allow_non_repo", "false")
-        allow_non_repo = (
+    if allow_dirty_or_off_main is None:
+        allow_cfg = cfg.get("compose", {}).get("allow_dirty_or_off_main", "false")
+        allow_dirty_or_off_main = (
             str(allow_cfg).lower() in ("true", "1", "yes") if allow_cfg is not None else False
         )
 
-    logger.debug("list_compose_files: allow_non_repo=%r", allow_non_repo)
+    logger.debug("list_compose_files: allow_dirty_or_off_main=%r", allow_dirty_or_off_main)
 
     result: list[ComposeFile] = []
     seen: set[tuple[str, str]] = set()  # (rc_base, name) to dedupe
 
     clone_root = _compose_sources_root(cfg)
+    allowed_kinds = _normalized_allowed_path_kinds(cfg, path_kind_warnings)
 
     for source in paths:
         source_str = str(source).strip()
         if not source_str:
             continue
 
+        kind, kind_err = _classify_compose_path_element(source_str)
+        if kind is None:
+            _emit_compose_warning(
+                f"compose: skipping compose.paths entry {source_str!r}: {kind_err}",
+                path_kind_warnings,
+            )
+            continue
+        if kind not in allowed_kinds:
+            _emit_compose_warning(
+                f"compose: skipping {source_str!r} (classified as {kind.upper()}; "
+                f"allowed_path_kinds permits only {_allowed_kinds_label(allowed_kinds)})",
+                path_kind_warnings,
+            )
+            continue
+
+        if kind == "directory":
+            dir_path = Path(source_str).expanduser().resolve()
+            if not dir_path.is_dir():
+                logger.debug("list_compose_files: skipping %r (not a directory)", dir_path)
+                continue
+            if not _compose_git_policy_allows_scan(dir_path, allow_dirty_or_off_main):
+                logger.debug(
+                    "list_compose_files: skipping DIRECTORY source %r (git policy: strict main:HEAD)",
+                    source_str,
+                )
+                continue
+            logger.debug("list_compose_files: scanning DIRECTORY source %r", dir_path)
+            _scan_compose_directory(dir_path, shell_rc_files, seen, result)
+            continue
+
+        # REPO: remote URL or local git worktree — clone (or pull) then scan.
         repo_source = _resolve_repo_source(source_str)
         if repo_source is None:
-            logger.debug("list_compose_files: skipping %r (source not found)", source_str)
+            _emit_compose_warning(
+                f"compose: skipping compose.paths entry {source_str!r}: path does not exist",
+                path_kind_warnings,
+            )
             continue
         source_id, clone_from = repo_source
         local = _ensure_cloned_source(source_id, clone_from, clone_root)
@@ -364,54 +568,15 @@ def list_compose_files(
             logger.debug("list_compose_files: skipping %r (not a directory)", dir_path)
             continue
 
-        if not allow_non_repo and not _is_repo_on_main(dir_path):
+        if not _compose_git_policy_allows_scan(dir_path, allow_dirty_or_off_main):
             logger.debug(
-                "list_compose_files: skipping %r (not a git repo on main:HEAD)",
+                "list_compose_files: skipping %r (git policy: strict main:HEAD)",
                 dir_path,
             )
             continue
 
-        logger.debug("list_compose_files: scanning directory %r", dir_path)
-
-        for rc_base in shell_rc_files:
-            pattern = re.compile(rf"^{re.escape(rc_base)}-(.+)$")
-            for entry in dir_path.iterdir():
-                if not entry.is_file():
-                    continue
-                m = pattern.match(entry.name)
-                if not m:
-                    continue
-                name = m.group(1)
-                key = (rc_base, name)
-                if key in seen:
-                    logger.debug(
-                        "list_compose_files: skipping %s (duplicate)",
-                        entry.name,
-                    )
-                    continue
-                seen.add(key)
-
-                dest_basename = f".{rc_base}-{name}"
-                summary, summary_valid = _parse_compose_summary(entry)
-                if not summary_valid:
-                    summary = INVALID_COMPOSE_SUMMARY
-                logger.debug(
-                    "list_compose_files: found %s -> %s (summary=%r valid=%s)",
-                    entry.name,
-                    dest_basename,
-                    summary[:50] if summary else "",
-                    summary_valid,
-                )
-                result.append(
-                    ComposeFile(
-                        source_path=str(entry),
-                        rc_base=rc_base,
-                        name=name,
-                        dest_basename=dest_basename,
-                        summary=summary,
-                        summary_valid=summary_valid,
-                    )
-                )
+        logger.debug("list_compose_files: scanning REPO clone %r", dir_path)
+        _scan_compose_directory(dir_path, shell_rc_files, seen, result)
 
     logger.debug(
         "list_compose_files: found %d compose file(s) from %d path(s)",

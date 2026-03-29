@@ -1272,7 +1272,10 @@ def display_compose_pick_tui(family: str) -> list[str]:
     """
     from .compose import compose_parent_rc_warnings, install_compose_files, list_compose_files
 
-    files = list_compose_files(family)
+    path_warnings: list[str] = []
+    files = list_compose_files(family, path_kind_warnings=path_warnings)
+    for msg in path_warnings:
+        print(msg, file=sys.stderr)
     if not files:
         return []
 

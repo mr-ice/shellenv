@@ -23,9 +23,34 @@ Maintain issues in these stages:
 - Use self-hosted credentials (API key, web UI credentials) for access.
 - Keep notes in **PROJECT.md** on how to access the tracker (URL, credentials location, quick start).
 
+## Agent API token (this workspace)
+
+For Cursor agents updating Vikunja via the REST API:
+
+- **Env var**: `CURSOR_VIKUNJA_API_TOKEN` (Vikunja **Settings → API tokens**; value usually starts with `tk_`).
+- **Where to read it**: **`.cursor/rules/.env`** (file is **gitignored** — create it locally if missing; never commit tokens).
+- **Base URL**: same as the running instance (e.g. `http://localhost:3456` from `VIKUNJA_SERVICE_PUBLICURL` / `PROJECT.md`). Use `Authorization: Bearer $CURSOR_VIKUNJA_API_TOKEN` on `/api/v1/...` routes.
+
+Before referencing a task id in a **git commit subject** (`shellenv-<id>`), **verify the task exists** in Vikunja (GET `/api/v1/tasks/{id}` or list project tasks). If there is no matching task, **create** it in the shellenv project and use **that** numeric `id`.
+
+## Workflow with git commits (required)
+
+**Vikunja is the selected tracker** for this workspace. Whenever work is **ready to commit** (before or as you prepare the commit):
+
+1. **Advance the relevant Vikunja task(s)** — at least one of: add a **comment** (what changed / decisions), update **percent done**, and/or **move the task** to the right bucket (**To Do** → **Ready** → **Doing** → **Done**).
+2. **Commit message subject line**: the **first token** must be **`<project>-<issue-number>`**, where:
+   - **`<project>`** is the short project slug (e.g. `shellenv` for this repo’s Vikunja project).
+   - **`<issue-number>`** is the task’s **numeric id** in Vikunja (API `id`, shown in the task URL / API — not the display `#index` unless you intentionally standardize on that).
+
+   Example: `shellenv-9 Add compose parent-rc warnings after install`
+
+   After that first token, use a normal imperative summary. Body may reference more tasks or details.
+
+Agents and humans should follow this so history, kanban, and git stay aligned.
+
 ## Chosen software: Vikunja
 
-**Vikunja** ([vikunja.io](https://vikunja.io), [code.vikunja.io](https://code.vikunja.io)) is the default issue tracker for this workspace and future projects.
+**Vikunja** ([vikunja.io](https://vikunja.io), [code.vikunja.io](https://code.vikunja.io)) is the **selected** issue tracker for this workspace and future projects.
 
 - **Why it fits**: self-hosted, Docker Compose, tasks with **kanban** (buckets), lists, comments, CalDAV, REST API, lightweight compared to full PM suites.
 - **Docker**: use `infra/vikunja/` in this repo (compose + `.env.example`) or follow the [Docker walkthrough](https://vikunja.io/docs/docker-walkthrough/).
