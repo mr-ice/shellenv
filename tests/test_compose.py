@@ -15,6 +15,7 @@ from shellenv.compose import (
     _parse_compose_summary,
     _registry_path,
     _shell_rc_files_for_family,
+    compose_parent_rc_warnings,
     get_registry,
     install_compose_files,
     list_compose_files,
@@ -418,6 +419,68 @@ class TestInstallComposeFiles:
         assert reg[0]["source_path"] == str(src / "zshrc-fzf")
         assert reg[0]["dest_basename"] == ".zshrc-fzf"
         assert reg[0]["install_mode"] == "symlink"
+
+
+class TestComposeParentRcWarnings:
+    """Post-install checks for parent rc sourcing ~/.{rc}-* fragments."""
+
+    def _cf(self, rc_base: str, name: str) -> ComposeFile:
+        return ComposeFile(
+            source_path="/tmp/unused",
+            rc_base=rc_base,
+            name=name,
+            dest_basename=f".{rc_base}-{name}",
+            summary="x",
+            summary_valid=True,
+        )
+
+    def test_no_warning_when_parent_sources_glob(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        (home / ".zshrc").write_text(
+            'for _rc in $HOME/.zshrc-*; do [ -f "$_rc" ] && . "$_rc"; done\n'
+        )
+        cf = self._cf("zshrc", "fzf")
+        assert compose_parent_rc_warnings([cf], home_dir=home, family="zsh") == []
+
+    def test_warning_when_parent_missing(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        cf = self._cf("zprofile", "x")
+        msgs = compose_parent_rc_warnings([cf], home_dir=home, family="zsh")
+        assert len(msgs) == 1
+        assert "does not exist" in msgs[0]
+        assert ".zprofile" in msgs[0]
+        assert "for _rc in $HOME/.zprofile-*" in msgs[0]
+
+    def test_warning_when_parent_has_no_loop(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        (home / ".bashrc").write_text("# nothing\nexport PATH=/usr/bin\n")
+        cf = self._cf("bashrc", "extra")
+        msgs = compose_parent_rc_warnings([cf], home_dir=home, family="bash")
+        assert len(msgs) == 1
+        assert "does not appear to source" in msgs[0]
+
+    def test_tcsh_foreach_detected(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        (home / ".tcshrc").write_text(
+            "foreach _rc ($HOME/.tcshrc-*)\n    source $_rc\nend\n"
+        )
+        cf = self._cf("tcshrc", "team")
+        assert compose_parent_rc_warnings([cf], home_dir=home, family="tcsh") == []
+
+    def test_one_warning_per_rc_base(self, tmp_path):
+        home = tmp_path / "home"
+        home.mkdir()
+        (home / ".zshrc").write_text("")
+        msgs = compose_parent_rc_warnings(
+            [self._cf("zshrc", "a"), self._cf("zshrc", "b")],
+            home_dir=home,
+            family="zsh",
+        )
+        assert len(msgs) == 1
 
 
 class TestRegistry:

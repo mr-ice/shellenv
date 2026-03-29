@@ -631,7 +631,7 @@ def _handle_compose_list(family: str) -> int:
 
 def _handle_compose_pick(args: argparse.Namespace, family: str) -> int:
     """Select and install compose files (TUI or by name)."""
-    from .compose import install_compose_files, list_compose_files
+    from .compose import compose_parent_rc_warnings, install_compose_files, list_compose_files
 
     if getattr(args, "tui", False):
         try:
@@ -675,6 +675,8 @@ def _handle_compose_pick(args: argparse.Namespace, family: str) -> int:
     print(f"Installed {len(installed)} file(s):")
     for p in installed:
         print(f"  {p}")
+    for msg in compose_parent_rc_warnings(selections, family=family):
+        print(msg, file=sys.stderr)
     return 0
 
 

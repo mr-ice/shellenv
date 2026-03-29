@@ -12,9 +12,12 @@ list_compose_files(family, shell_rc_files, paths, allow_non_repo)
 split_compose_by_summary_valid(files)
     Split results into valid vs invalid summary headers.
 install_compose_files(selections, home_dir)
-    Copy selected files to home directory and update registry.
+    Symlink selected files into home and update registry.
 get_registry()
     Load the compose selections registry.
+compose_parent_rc_warnings(selections, home_dir, family)
+    After install, return human-readable warnings if parent rc files do not
+    appear to source ``~/.{rc_base}-*`` fragments (PROJECT.md).
 
 Environment (testing)
 ---------------------
@@ -419,6 +422,103 @@ def list_compose_files(
         result,
         key=lambda c: (0 if c.summary_valid else 1, c.rc_base, c.name),
     )
+
+
+def _parent_rc_sources_fragments(content: str, rc_base: str) -> bool:
+    """Return True if *content* plausibly loads ``~/.{rc_base}-*`` fragments."""
+    if not content or not content.strip():
+        return False
+    eb = re.escape(rc_base)
+    dot = rf"\.{eb}-"
+    # Explicit glob on fragment basename
+    if re.search(rf"{dot}\\*", content):
+        return True
+    if re.search(rf"(?:\$HOME|\$\{{HOME\}}|~)/\.{eb}-\*", content):
+        return True
+    # Parentheses glob (tcsh): ($HOME/.tcshrc-*)
+    if re.search(rf"\([^)]*{dot}\*", content):
+        return True
+    # for / foreach iterating over fragment paths
+    if re.search(rf"for\s+[^\n#]*{dot}", content, re.IGNORECASE):
+        return True
+    if re.search(rf"foreach\s+[^\n#]*{dot}", content, re.IGNORECASE):
+        return True
+    return False
+
+
+def _example_parent_rc_loop(rc_base: str, family: str) -> str:
+    """Return a short example stanza for sourcing compose fragments."""
+    fam = family.lower()
+    if fam == "tcsh":
+        return (
+            f"  foreach _rc ($HOME/.{rc_base}-*)\n"
+            f'      if (-f "$_rc") source "$_rc"\n'
+            f"  end"
+        )
+    return (
+        f"  for _rc in $HOME/.{rc_base}-*; do\n"
+        f'      [ -f "$_rc" ] && . "$_rc"\n'
+        f"  done"
+    )
+
+
+def compose_parent_rc_warnings(
+    selections: list[ComposeFile],
+    home_dir: Path | None = None,
+    *,
+    family: str = "zsh",
+) -> list[str]:
+    """Check parent rc files for compose fragment sourcing loops (PROJECT.md).
+
+    Emits at most one message per distinct ``rc_base`` among *selections*.
+    """
+    if not selections:
+        return []
+
+    home = home_dir or Path.home()
+    fam = family.lower()
+    warned_rc: set[str] = set()
+    out: list[str] = []
+
+    for cf in selections:
+        rc = cf.rc_base
+        if rc in warned_rc:
+            continue
+        warned_rc.add(rc)
+
+        parent = home / f".{rc}"
+        example = _example_parent_rc_loop(rc, fam)
+        shell_hint = "bash/zsh" if fam != "tcsh" else "tcsh"
+
+        if not parent.exists():
+            out.append(
+                f"warning: parent startup file {parent} does not exist. "
+                f"Compose installed fragments like ~/{cf.dest_basename}; "
+                f"create {parent} and add a loop so the shell loads ~/.{rc}-* files.\n"
+                f"Example ({shell_hint}):\n{example}"
+            )
+            continue
+
+        try:
+            text = parent.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            out.append(
+                f"warning: could not read {parent}: {exc}. "
+                f"Verify it sources ~/.{rc}-* compose fragments.\n"
+                f"Example ({shell_hint}):\n{example}"
+            )
+            continue
+
+        if _parent_rc_sources_fragments(text, rc):
+            continue
+
+        out.append(
+            f"warning: {parent} does not appear to source ~/.{rc}-* compose fragments. "
+            f"Files like ~/{cf.dest_basename} may never load unless you add a loop.\n"
+            f"Example ({shell_hint}):\n{example}"
+        )
+
+    return out
 
 
 def split_compose_by_summary_valid(

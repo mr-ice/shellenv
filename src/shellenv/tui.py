@@ -21,6 +21,7 @@ from __future__ import annotations
 import curses
 import os
 import shutil
+import sys
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -1214,11 +1215,50 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _show_compose_parent_rc_warnings(stdscr, messages: list[str]) -> None:
+    """Show multi-line compose parent-rc warnings; wait for a keypress."""
+    stdscr.clear()
+    try:
+        stdscr.border()
+    except curses.error:
+        pass
+    h, w = stdscr.getmaxyx()
+    row = 2
+    title = "Compose: parent rc may not load fragments"
+    try:
+        stdscr.addstr(1, 2, title[: max(0, w - 4)])
+    except curses.error:
+        pass
+    for msg in messages:
+        for line in msg.splitlines():
+            if row >= h - 3:
+                try:
+                    stdscr.addstr(h - 3, 2, "… (truncated; full text on stderr)")
+                except curses.error:
+                    pass
+                row = h - 2
+                break
+            try:
+                stdscr.addstr(row, 2, line[: max(0, w - 4)])
+            except curses.error:
+                pass
+            row += 1
+        row += 1
+        if row >= h - 3:
+            break
+    try:
+        stdscr.addstr(h - 2, 2, "Press any key to continue")
+    except curses.error:
+        pass
+    stdscr.refresh()
+    stdscr.getch()
+
+
 def display_compose_pick_tui(family: str) -> list[str]:
     """Interactive TUI for selecting and installing compose files.
 
     Shows available compose files with summaries. Selected files are
-    copied to the user's home directory and the registry is updated.
+    symlinked into the user's home directory and the registry is updated.
 
     Parameters
     ----------
@@ -1230,7 +1270,7 @@ def display_compose_pick_tui(family: str) -> list[str]:
     list[str]
         Absolute paths of installed files (empty if cancelled).
     """
-    from .compose import install_compose_files, list_compose_files
+    from .compose import compose_parent_rc_warnings, install_compose_files, list_compose_files
 
     files = list_compose_files(family)
     if not files:
@@ -1308,6 +1348,11 @@ def display_compose_pick_tui(family: str) -> list[str]:
                     try:
                         installed = install_compose_files(selected_files)
                         status = f"Installed {len(installed)} file(s)"
+                        warns = compose_parent_rc_warnings(selected_files, family=family)
+                        for w in warns:
+                            print(w, file=sys.stderr)
+                        if warns:
+                            _show_compose_parent_rc_warnings(stdscr, warns)
                     except Exception as exc:
                         status = f"Error: {exc}"
                     _draw()

@@ -13,4 +13,5 @@ def test_default_config_dict():
         "trace": {"threshold_secs": None, "threshold_percent": None},
         "repo": {"url": None, "destination": None},
         "compose": {"paths": [], "shell_rc_files": [], "allow_non_repo": "false"},
+        "shellenv": {"tool_repo_path": "~/.shellenv"},
     }
