@@ -449,14 +449,17 @@ def _handle_backup(args: argparse.Namespace) -> int:
     inc = args.include or None
     exc = args.exclude or None
 
+    files = _discover_files(family)
+    files = filter_files(files, include=inc, exclude=exc)
+    if not files:
+        print("no startup files found to back up")
+        return 0
+
     if getattr(args, "tui", False):
         try:
             from .tui import display_backup_tui
 
-            groups = _discover_all_families(include=inc, exclude=exc)
-            if not groups:
-                print("no startup files found to back up")
-                return 0
+            groups = [(family, files)]
             result = display_backup_tui(groups, family, archive_mode=False)
             if result:
                 print(f"archive created: {result}")
@@ -465,11 +468,6 @@ def _handle_backup(args: argparse.Namespace) -> int:
             print(f"TUI failed: {exc_tui}", file=sys.stderr)
             return 1
 
-    files = _discover_files(family)
-    files = filter_files(files, include=inc, exclude=exc)
-    if not files:
-        print("no startup files found to back up")
-        return 0
     print(f"backing up {len(files)} file(s):")
     for f in files:
         print(f"  {f}")
@@ -486,14 +484,17 @@ def _handle_archive(args: argparse.Namespace) -> int:
     inc = args.include or None
     exc = args.exclude or None
 
+    files = _discover_files(family)
+    files = filter_files(files, include=inc, exclude=exc)
+    if not files:
+        print("no startup files found to archive")
+        return 0
+
     if getattr(args, "tui", False):
         try:
             from .tui import display_backup_tui
 
-            groups = _discover_all_families(include=inc, exclude=exc)
-            if not groups:
-                print("no startup files found to archive")
-                return 0
+            groups = [(family, files)]
             result = display_backup_tui(groups, family, archive_mode=True)
             if result:
                 print(f"archive created: {result}")
@@ -501,9 +502,6 @@ def _handle_archive(args: argparse.Namespace) -> int:
         except Exception as exc_tui:
             print(f"TUI failed: {exc_tui}", file=sys.stderr)
             return 1
-
-    files = _discover_files(family)
-    files = filter_files(files, include=inc, exclude=exc)
 
     print(f"will back up and remove {len(files)} file(s):")
     for f in files:
@@ -520,18 +518,6 @@ def _handle_archive(args: argparse.Namespace) -> int:
 
 def _handle_restore(args: argparse.Namespace) -> int:
     """Handle the ``restore`` subcommand."""
-    if getattr(args, "tui", False):
-        try:
-            from .tui import display_restore_tui
-
-            restored = display_restore_tui()
-            if restored:
-                print(f"restored {len(restored)} file(s)")
-            return 0
-        except Exception as exc:
-            print(f"TUI failed: {exc}", file=sys.stderr)
-            return 1
-
     from .backup import find_archive, list_archives, read_manifest, restore_from_archive
 
     substring = getattr(args, "archive_substring", None)
@@ -551,13 +537,33 @@ def _handle_restore(args: argparse.Namespace) -> int:
             return 1
         archive_path = archives[0][1]
 
+    force = getattr(args, "force", False)
+    include = args.include or None
+    exclude = args.exclude or None
+
+    if getattr(args, "tui", False):
+        try:
+            from .tui import display_restore_tui
+
+            restored = display_restore_tui(
+                preselected_archive=archive_path,
+                include=include,
+                exclude=exclude,
+                force_default=force,
+            )
+            if restored:
+                print(f"restored {len(restored)} file(s)")
+            return 0
+        except Exception as exc:
+            print(f"TUI failed: {exc}", file=sys.stderr)
+            return 1
+
     manifest = read_manifest(archive_path)
     print(f"archive: {archive_path.name}  ({manifest.timestamp})")
     print(f"files ({len(manifest.files)}):")
     for f in manifest.files:
         print(f"  {f}")
 
-    force = getattr(args, "force", False)
     if not getattr(args, "yes", False):
         action = "restore (overwrite existing)" if force else "restore (skip existing)"
         answer = input(f"{action}? [y/N] ").strip().lower()
@@ -567,8 +573,8 @@ def _handle_restore(args: argparse.Namespace) -> int:
 
     restored = restore_from_archive(
         archive_path,
-        include=args.include or None,
-        exclude=args.exclude or None,
+        include=include,
+        exclude=exclude,
         force=force,
     )
     print(f"restored {len(restored)} file(s)")

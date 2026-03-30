@@ -31,7 +31,9 @@ For Cursor agents updating Vikunja via the REST API:
 - **Where to read it**: **`.cursor/rules/.env`** (file is **gitignored** — create it locally if missing; never commit tokens).
 - **Base URL**: same as the running instance (e.g. `http://localhost:3456` from `VIKUNJA_SERVICE_PUBLICURL` / `PROJECT.md`). Use `Authorization: Bearer $CURSOR_VIKUNJA_API_TOKEN` on `/api/v1/...` routes.
 
-Before referencing a task id in a **git commit subject** (`shellenv-<id>`), **verify the task exists** in Vikunja (GET `/api/v1/tasks/{id}` or list project tasks). If there is no matching task, **create** it in the shellenv project and use **that** numeric `id`.
+When **referring** to tasks in discussion/commit subjects, use the task **identifier/index** (for example `shellenv-18`), not the internal API id. Use API `id` only for API operations.
+
+Before referencing a task in a **git commit subject** (`shellenv-<id>`), verify it exists by identifier/index in the shellenv project; map that to API `id` for REST calls (GET `/api/v1/tasks/{id}`) as needed. If there is no matching task, create one and use its new identifier/index.
 
 ## Workflow with git commits (required)
 
@@ -40,7 +42,7 @@ Before referencing a task id in a **git commit subject** (`shellenv-<id>`), **ve
 1. **Advance the relevant Vikunja task(s)** — at least one of: add a **comment** (what changed / decisions), update **percent done**, and/or **move the task** to the right bucket (**To Do** → **Ready** → **Doing** → **Done**).
 2. **Commit message subject line**: the **first token** must be **`<project>-<issue-number>`**, where:
    - **`<project>`** is the short project slug (e.g. `shellenv` for this repo’s Vikunja project).
-   - **`<issue-number>`** is the task’s **numeric id** in Vikunja (API `id`, shown in the task URL / API — not the display `#index` unless you intentionally standardize on that).
+   - **`<issue-number>`** is the task’s **identifier/index** (human-facing issue number, e.g. `18` in `shellenv-18`). API `id` may differ and is only for REST calls.
 
    Example: `shellenv-9 Add compose parent-rc warnings after install`
 

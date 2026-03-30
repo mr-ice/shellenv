@@ -239,13 +239,16 @@ def _cli_backup_env(tmp_path, monkeypatch):
         return []
 
     monkeypatch.setattr("shellenv.cli._discover_files", _fake_discover)
+    from shellenv.backup import create_backup
+
+    create_backup([str(home / ".bashrc")], "bash", backup_dir=tmp_path / "backups")
     return home, bash_files, zsh_files
 
 
 class TestCLIBackupTUI:
-    """Verify --tui flag dispatches to display_backup_tui with all families."""
+    """Verify --tui flag dispatches with the same family-scoped file set as CLI mode."""
 
-    def test_backup_tui_receives_all_families(self, _cli_backup_env, monkeypatch):
+    def test_backup_tui_receives_selected_family_only(self, _cli_backup_env, monkeypatch):
         from shellenv.cli import main
 
         home, bash_files, zsh_files = _cli_backup_env
@@ -262,10 +265,7 @@ class TestCLIBackupTUI:
         assert rc == 0
         assert called["active_family"] == "bash"
         assert called["archive_mode"] is False
-        # Should have groups for bash and zsh
-        families = [fam for fam, _ in called["groups"]]
-        assert "bash" in families
-        assert "zsh" in families
+        assert called["groups"] == [("bash", bash_files)]
 
     def test_archive_tui_sets_archive_mode(self, _cli_backup_env, monkeypatch):
         called = {}
@@ -286,22 +286,44 @@ class TestCLIBackupTUI:
 class TestCLIRestoreTUI:
     """Verify --tui flag dispatches to display_restore_tui."""
 
-    def test_restore_tui_called(self, _cli_backup_env, monkeypatch):
+    def test_restore_tui_called_with_cli_filters(self, _cli_backup_env, monkeypatch):
         called = {}
 
-        def fake_tui(backup_dir=None):
+        def fake_tui(
+            backup_dir=None,
+            *,
+            preselected_archive=None,
+            include=None,
+            exclude=None,
+            force_default=False,
+        ):
             called["invoked"] = True
+            called["preselected_archive"] = preselected_archive
+            called["include"] = include
+            called["exclude"] = exclude
+            called["force_default"] = force_default
             return []
 
         monkeypatch.setattr("shellenv.tui.display_restore_tui", fake_tui)
         from shellenv.cli import main
 
-        rc = main(["restore", "--tui"])
+        rc = main(["restore", "--tui", "--include", ".bashrc", "--exclude", ".zshrc", "--force"])
         assert rc == 0
         assert called.get("invoked")
+        assert called["include"] == [".bashrc"]
+        assert called["exclude"] == [".zshrc"]
+        assert called["force_default"] is True
+        assert called["preselected_archive"] is not None
 
     def test_restore_tui_reports_count(self, _cli_backup_env, monkeypatch, capsys):
-        def fake_tui(backup_dir=None):
+        def fake_tui(
+            backup_dir=None,
+            *,
+            preselected_archive=None,
+            include=None,
+            exclude=None,
+            force_default=False,
+        ):
             return ["/home/.bashrc", "/home/.profile"]
 
         monkeypatch.setattr("shellenv.tui.display_restore_tui", fake_tui)

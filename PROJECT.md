@@ -133,7 +133,7 @@ Map Vikunja **kanban buckets** to `.cursor/rules/issue-tracker-kanban.mdc`:
 When **preparing a commit** for work tied to a task:
 
 1. **Update Vikunja** for that task (and any related tasks): add a **comment**, adjust **percent done**, and/or **move buckets** (**To Do** / **Ready** / **Doing** / **Done**) so the board matches reality.
-2. **Commit subject line**: the **first word** must be **`<project>-<issue-number>`** — project slug (e.g. `shellenv`) and the task’s **numeric id** in Vikunja, then the rest of the summary.
+2. **Commit subject line**: the **first word** must be **`<project>-<issue-number>`** — project slug (e.g. `shellenv`) and the task’s **identifier/index** in Vikunja (human-facing issue number), then the rest of the summary.
 
    Example: `shellenv-14 Document compose symlink install`
 

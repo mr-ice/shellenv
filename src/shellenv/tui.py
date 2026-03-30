@@ -1130,7 +1130,14 @@ def _restore_file_status(
     return [(f, (target_dir / f).exists()) for f in manifest_files]
 
 
-def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
+def display_restore_tui(
+    backup_dir: Path | None = None,
+    *,
+    preselected_archive: Path | None = None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    force_default: bool = False,
+) -> list[str]:
     """Interactive TUI for browsing archives and restoring files.
 
     Two-phase workflow: first select an archive, then select files to
@@ -1140,13 +1147,21 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
     ----------
     backup_dir : Path or None
         Override backup directory.  Defaults to :func:`backup.get_backup_dir`.
+    preselected_archive : Path or None
+        If set, skip archive-picking and restore from this archive.
+    include : list[str] or None
+        Optional include patterns (basename fnmatch), same semantics as CLI.
+    exclude : list[str] or None
+        Optional exclude patterns (basename fnmatch), same semantics as CLI.
+    force_default : bool
+        Initial overwrite mode for restore; user can still toggle with ``f``.
 
     Returns
     -------
     list[str]
         Absolute paths of restored files (empty if cancelled).
     """
-    from .backup import list_archives, read_manifest, restore_from_archive
+    from .backup import filter_files, list_archives, read_manifest, restore_from_archive
 
     restored_files: list[str] = []
 
@@ -1220,33 +1235,52 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
                 if ch in (ord("n"), ord("N")):
                     return False
 
-        _draw_archive_list()
-        chosen_archive = None
-        while True:
-            ch = stdscr.getch()
-            if ch in (ord("q"), ord("Q")):
-                return
-
-            h, _ = stdscr.getmaxyx()
-            display_lines = h - 9
-            selected, top = _config_nav(ch, selected, top, len(archives), display_lines)
-
-            if ch in (curses.KEY_ENTER, 10, 13):
-                chosen_archive = archives[selected][1]
-                break
-
+        chosen_archive = preselected_archive
+        if chosen_archive is None:
             _draw_archive_list()
+            while True:
+                ch = stdscr.getch()
+                if ch in (ord("q"), ord("Q")):
+                    return
+
+                h, _ = stdscr.getmaxyx()
+                display_lines = h - 9
+                selected, top = _config_nav(ch, selected, top, len(archives), display_lines)
+
+                if ch in (curses.KEY_ENTER, 10, 13):
+                    chosen_archive = archives[selected][1]
+                    break
+
+                _draw_archive_list()
 
         # --- Phase 2: file selection from chosen archive ---
         manifest = read_manifest(chosen_archive)
         target_dir = Path.home()
-        file_status = _restore_file_status(manifest.files, target_dir)
+        filtered_manifest_files = filter_files(
+            [str(target_dir / f) for f in manifest.files],
+            include=include,
+            exclude=exclude,
+        )
+        filtered_manifest_rel = [os.path.relpath(p, target_dir) for p in filtered_manifest_files]
+        if not filtered_manifest_rel:
+            stdscr.clear()
+            stdscr.border()
+            try:
+                stdscr.addstr(2, 2, "No files match include/exclude filters in this archive.")
+                stdscr.addstr(4, 2, "Press any key to exit.")
+            except curses.error:
+                pass
+            stdscr.refresh()
+            stdscr.getch()
+            return
+
+        file_status = _restore_file_status(filtered_manifest_rel, target_dir)
         labels = [f"{name}  (exists)" if exists else name for name, exists in file_status]
         state = ChecklistState(
             items=labels,
             checked=[True] * len(labels),
         )
-        force = False
+        force = bool(force_default)
         status = ""
         nav_display_lines = [8]
 
@@ -1283,7 +1317,7 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
                 force = not force
 
             if ch in (curses.KEY_ENTER, 10, 13):
-                selected_files = [manifest.files[i] for i, c in enumerate(state.checked) if c]
+                selected_files = [filtered_manifest_rel[i] for i, c in enumerate(state.checked) if c]
                 if not selected_files:
                     status = "No files selected"
                     _draw_restore()
@@ -1295,7 +1329,7 @@ def display_restore_tui(backup_dir: Path | None = None) -> list[str]:
                         result = restore_from_archive(
                             chosen_archive,
                             target_dir=target_dir,
-                            include=[os.path.basename(f) for f in selected_files],
+                            include=selected_files,
                             force=force,
                         )
                         restored_files.extend(result)
