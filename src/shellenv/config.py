@@ -100,11 +100,20 @@ CONFIG_SCHEMA: dict[str, ConfigKey] = {
         default=None,
         description="Local path to clone repo into",
     ),
+    "repo.branch": ConfigKey(
+        key="repo.branch",
+        value_type="string",
+        default="main",
+        description="Branch to track for repo.url clone/update (default main)",
+    ),
     "compose.paths": ConfigKey(
         key="compose.paths",
         value_type="list_of_strings",
         default=[],
-        description="Compose sources: git URLs, local git repos (including bare), or plain directories; see PROJECT.md",
+        description=(
+            "Compose sources: git URLs, local git repos (including bare), "
+            "or plain directories; see PROJECT.md"
+        ),
         merge_strategy="append",
     ),
     "compose.allowed_path_kinds": ConfigKey(

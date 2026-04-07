@@ -20,6 +20,9 @@ shell_rc_files = []
 
 
 [repo]
+# Branch to checkout / fast-forward (clone uses -b when the remote has it)
+# branch = "main"
+
 # Local path to clone repo into
 # destination = null
 

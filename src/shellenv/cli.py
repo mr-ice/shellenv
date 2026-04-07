@@ -205,6 +205,32 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("list-backups", help="List available backup archives")
 
+    init_repo_p = sub.add_parser(
+        "init-repo",
+        help="Clone or update repo.url into repo.destination and verify it matches config",
+    )
+    init_repo_p.add_argument(
+        "--fix",
+        action="store_true",
+        help="Switch to repo.branch and git pull --ff-only when behind origin",
+    )
+
+    init_p = sub.add_parser(
+        "init",
+        help="Install startup files from the configured repo into the home directory",
+    )
+    init_p.add_argument("--family", help="Shell family (bash, zsh, tcsh)")
+    init_p.add_argument(
+        "--fix-repo",
+        action="store_true",
+        help="Same as shellenv init-repo --fix before copying files",
+    )
+    init_p.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip confirmation before backing up files that would be overwritten",
+    )
+
     # --- compose ---
     compose_p = sub.add_parser(
         "compose",
@@ -692,6 +718,52 @@ def _handle_compose_pick(args: argparse.Namespace, family: str) -> int:
     return 0
 
 
+def _handle_init_repo(args: argparse.Namespace) -> int:
+    """Clone/update configured startup repo."""
+    from .repo_init import ensure_startup_repo_ready
+
+    try:
+        warnings = ensure_startup_repo_ready(fix=getattr(args, "fix", False))
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
+    print("init-repo: repository ready")
+    return 0
+
+
+def _handle_init(args: argparse.Namespace) -> int:
+    """Copy family startup files from configured repo into home (backup first if needed)."""
+    from .repo_init import run_init_home
+
+    family = _resolve_family(args)
+    try:
+        warnings, copied = run_init_home(
+            family,
+            fix_repo=getattr(args, "fix_repo", False),
+            yes=getattr(args, "yes", False),
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    for w in warnings:
+        print(f"warning: {w}", file=sys.stderr)
+    if not copied:
+        print("init: nothing to install (no matching files or already up to date)")
+        return 0
+    print(f"init: installed {len(copied)} file(s) into home:")
+    for rel in copied:
+        print(f"  ~/{rel}")
+    return 0
+
+
 def _handle_list_backups() -> int:
     """Handle the ``list-backups`` subcommand."""
     from .backup import list_archives, read_manifest
@@ -914,6 +986,11 @@ def main(argv: list[str] | None = None) -> int:
         return _handle_restore(args)
     if args.cmd == "list-backups":
         return _handle_list_backups()
+
+    if args.cmd == "init-repo":
+        return _handle_init_repo(args)
+    if args.cmd == "init":
+        return _handle_init(args)
 
     if args.cmd == "compose":
         return _handle_compose(args)
