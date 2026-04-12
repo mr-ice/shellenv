@@ -17,6 +17,15 @@ from typing import Any
 
 from .discover import _is_valid_for_family
 
+# Resolve the git binary once at import time so calls succeed even when the
+# process environment has a stripped PATH (e.g. `env - uv run shellenv init`).
+# Fall back to common install locations when PATH is empty.
+_GIT_FALLBACK_PATHS = ("/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git")
+_GIT: str = shutil.which("git") or next(
+    (p for p in _GIT_FALLBACK_PATHS if Path(p).exists()),
+    "git",  # last-resort: let subprocess raise a clear FileNotFoundError
+)
+
 
 def _run_git(
     args: list[str],
@@ -25,7 +34,7 @@ def _run_git(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["git", *args],
+        [_GIT, *args],
         cwd=str(cwd) if cwd else None,
         env=env,
         check=False,
